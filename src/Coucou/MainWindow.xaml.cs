@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
@@ -13,20 +14,18 @@ namespace Coucou;
 public partial class MainWindow : Window
 {
     [StructLayout(LayoutKind.Sequential)]
-    private struct POINT
-    {
-        public int X;
-        public int Y;
-    }
+    private struct POINT { public int X; public int Y; }
 
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT point);
 
     private readonly ClaudeSessionDiscovery _discovery;
     private readonly LocalSettings _settings;
+    private readonly ClaudeBridgeServer _bridge;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
+    private TaskCompletionSource<string?>? _permissionDecision;
     private int _pokes;
 
     public MainWindow(ClaudeSessionDiscovery discovery, LocalSettings settings)
@@ -34,6 +33,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _discovery = discovery;
         _settings = settings;
+        _bridge = new ClaudeBridgeServer(HandleClaudeHookAsync);
         _poll.Tick += (_, _) => RefreshStatus();
         _cursorPoll.Tick += (_, _) => FollowGlobalCursor();
         _blink.Tick += (_, _) => Blink();
@@ -45,7 +45,17 @@ public partial class MainWindow : Window
         _poll.Start();
         _cursorPoll.Start();
         _blink.Start();
+        _bridge.Start();
         RefreshStatus();
+    }
+
+    protected override async void OnClosed(EventArgs e)
+    {
+        _poll.Stop();
+        _cursorPoll.Stop();
+        _blink.Stop();
+        await _bridge.DisposeAsync();
+        base.OnClosed(e);
     }
 
     private void PositionTopCenter()
@@ -80,8 +90,7 @@ public partial class MainWindow : Window
         Character.RenderTransformOrigin = new Point(.5, .5);
         Character.RenderTransform = scale;
         scale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(1, .18, TimeSpan.FromMilliseconds(90))
-            { AutoReverse = true });
+            new DoubleAnimation(1, .18, TimeSpan.FromMilliseconds(90)) { AutoReverse = true });
         _blink.Interval = TimeSpan.FromSeconds(Random.Shared.Next(3, 7));
     }
 
@@ -126,5 +135,76 @@ public partial class MainWindow : Window
         Status.Text = $"Got {Path.GetFileName(files.FirstOrDefault() ?? "file")}";
         Hint.Text = "Ask Claude what to do with it";
         e.Handled = true;
+    }
+
+    private async Task<string?> HandleClaudeHookAsync(ClaudeHookEvent hook)
+    {
+        if (!string.Equals(hook.HookEventName, "PermissionRequest", StringComparison.OrdinalIgnoreCase))
+        {
+            if (hook.HookEventName is "Notification" or "Stop" or "PostToolUseFailure")
+                Dispatcher.Invoke(() => Status.Text = hook.HookEventName == "Stop"
+                    ? "Claude finished ✨"
+                    : $"Claude: {hook.HookEventName}");
+            return null;
+        }
+
+        var toolInput = hook.ToolInput.ValueKind == JsonValueKind.Object
+            ? hook.ToolInput.ToString()
+            : "";
+
+        var command = hook.ToolName switch
+        {
+            "Bash" or "PowerShell" => TryGetString(hook.ToolInput, "command"),
+            "Write" or "Edit" => TryGetString(hook.ToolInput, "file_path"),
+            _ => toolInput
+        };
+
+        var tcs = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await Dispatcher.InvokeAsync(() =>
+        {
+            _permissionDecision?.TrySetResult(null);
+            _permissionDecision = tcs;
+            PermissionTitle.Text = $"Allow Claude to use {hook.ToolName}?";
+            PermissionCommand.Text = string.IsNullOrWhiteSpace(command) ? "Claude requested a tool permission." : command;
+            PermissionCard.Visibility = Visibility.Visible;
+            Height = 190;
+            Status.Text = "Needs your permission 👀";
+            Hint.Text = "Claude is waiting";
+            Activate();
+        });
+
+        return await tcs.Task;
+    }
+
+    private static string TryGetString(JsonElement input, string property)
+    {
+        return input.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? ""
+            : "";
+    }
+
+    private void OnAllowPermission(object sender, RoutedEventArgs e) => ResolvePermission("allow");
+
+    private void OnDenyPermission(object sender, RoutedEventArgs e) => ResolvePermission("deny");
+
+    private void ResolvePermission(string behavior)
+    {
+        var response = JsonSerializer.Serialize(new
+        {
+            hookSpecificOutput = new
+            {
+                hookEventName = "PermissionRequest",
+                decision = new { behavior }
+            }
+        });
+
+        _permissionDecision?.TrySetResult(response);
+        _permissionDecision = null;
+        PermissionCard.Visibility = Visibility.Collapsed;
+        Height = 112;
+        Status.Text = behavior == "allow" ? "Allowed ✓" : "Denied";
+        Hint.Text = "Watching Claude Code…";
     }
 }
