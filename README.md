@@ -23,6 +23,12 @@ The repository includes:
 - `ClaudeBridgeServer` — local named-pipe server inside Coucou.
 - `docs/claude-code-settings.example.json` — example hook configuration.
 
+### Download and run
+
+GitHub Actions produces a ready-to-run **Coucou-win-x64.zip** bundle. Extract it to a permanent folder (for example `%LOCALAPPDATA%\\Coucou`) and launch `Coucou.exe`. Keep `Coucou.Hook.exe` beside it so Claude Code can use the permission bridge.
+
+Coucou does not require an installer or administrator rights for normal use.
+
 ### Enable the hooks
 
 1. Build or download the Windows bundle.
