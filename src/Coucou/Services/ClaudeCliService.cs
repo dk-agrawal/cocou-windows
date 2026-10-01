@@ -6,7 +6,22 @@ namespace Coucou.Services;
 
 public sealed class ClaudeCliService
 {
+    private readonly LocalSettings _settings;
     private readonly ConcurrentDictionary<string, Guid> _sessions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, bool> _started = new(StringComparer.OrdinalIgnoreCase);
+
+    public ClaudeCliService(LocalSettings settings)
+    {
+        _settings = settings;
+        foreach (var pair in settings.ClaudeSessions.ToArray())
+        {
+            if (Guid.TryParse(pair.Value, out var id))
+            {
+                _sessions[pair.Key] = id;
+                _started[pair.Key] = true;
+            }
+        }
+    }
 
     public async Task<string> AskAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default)
     {
@@ -16,9 +31,8 @@ public sealed class ClaudeCliService
         if (!Directory.Exists(workingDirectory))
             workingDirectory = Environment.CurrentDirectory;
 
-        var sessionId = _sessions.GetOrAdd(
-            Path.GetFullPath(workingDirectory),
-            _ => Guid.NewGuid());
+        var projectPath = Path.GetFullPath(workingDirectory);
+        var sessionId = _sessions.GetOrAdd(projectPath, _ => Guid.NewGuid());
 
         var start = new ProcessStartInfo
         {
@@ -37,7 +51,7 @@ public sealed class ClaudeCliService
         start.ArgumentList.Add("--max-turns");
         start.ArgumentList.Add("1");
 
-        if (WasSessionStarted(workingDirectory))
+        if (_started.ContainsKey(projectPath))
         {
             start.ArgumentList.Add("--resume");
             start.ArgumentList.Add(sessionId.ToString());
@@ -66,7 +80,10 @@ public sealed class ClaudeCliService
                 if (error.Contains("session", StringComparison.OrdinalIgnoreCase) &&
                     error.Contains("not found", StringComparison.OrdinalIgnoreCase))
                 {
-                    _sessions.TryRemove(Path.GetFullPath(workingDirectory), out _);
+                    _sessions.TryRemove(projectPath, out _);
+                    _started.TryRemove(projectPath, out _);
+                    _settings.ClaudeSessions.Remove(projectPath);
+                    _settings.Save();
                 }
 
                 return string.IsNullOrWhiteSpace(error)
@@ -74,7 +91,9 @@ public sealed class ClaudeCliService
                     : error.Trim();
             }
 
-            MarkSessionStarted(workingDirectory);
+            _started[projectPath] = true;
+            _settings.ClaudeSessions[projectPath] = sessionId.ToString();
+            _settings.Save();
             return string.IsNullOrWhiteSpace(output) ? "Claude returned no text." : output.Trim();
         }
         catch (OperationCanceledException)
@@ -87,13 +106,4 @@ public sealed class ClaudeCliService
             return $"Couldn't start Claude Code: {ex.Message}";
         }
     }
-
-    private readonly ConcurrentDictionary<string, bool> _started =
-        new(StringComparer.OrdinalIgnoreCase);
-
-    private bool WasSessionStarted(string workingDirectory) =>
-        _started.ContainsKey(Path.GetFullPath(workingDirectory));
-
-    private void MarkSessionStarted(string workingDirectory) =>
-        _started[Path.GetFullPath(workingDirectory)] = true;
 }
