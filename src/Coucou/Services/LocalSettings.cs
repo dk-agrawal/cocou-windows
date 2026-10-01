@@ -11,6 +11,7 @@ public sealed class LocalSettings
 
     public bool CursorTracking { get; set; } = true;
     public bool StartWithWindows { get; set; }
+    public Dictionary<string, string> ClaudeSessions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public void Save()
     {
