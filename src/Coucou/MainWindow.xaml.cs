@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -31,6 +32,11 @@ public partial class MainWindow : Window
     private string? _droppedFile;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
+    private readonly Stopwatch _greetingClock = Stopwatch.StartNew();
+    private double _greetingTime;
+    private bool _greetingActive = true;
+    private bool _greetingHeld;
+    private readonly double _autoCollapseAt = 4.9;
     private sealed record PermissionPrompt(Guid Id, ClaudeHookEvent Hook, string Command, TaskCompletionSource<string?> Completion);
     private readonly Queue<PermissionPrompt> _permissionQueue = new();
     private PermissionPrompt? _activePermission;
@@ -53,11 +59,14 @@ public partial class MainWindow : Window
         _trayIcon = CreateTrayIcon();
         _poll.Tick += (_, _) => RefreshStatus();
         _blink.Tick += (_, _) => Blink();
+        _poll.Tick += (_, _) => TickGreeting();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         PositionTopCenter();
+        _greetingClock.Restart();
+        _greetingActive = true;
         _poll.Start();
         System.Windows.Media.CompositionTarget.Rendering += OnRendering;
         _blink.Start();
@@ -169,6 +178,118 @@ public partial class MainWindow : Window
             SessionState.Finished => $"Finished • {active.Project}",
             _ => active.Project
         };
+    }
+
+    private static double Clamp01(double v) => Math.Clamp(v, 0, 1);
+    private static double Seg(double t, double a, double b) => Clamp01((t - a) / (b - a));
+    private static double Out(double t) => 1 - Math.Pow(1 - Clamp01(t), 3);
+    private static double In(double t) => Math.Pow(Clamp01(t), 3);
+    private static double InOut(double t)
+    {
+        t = Clamp01(t);
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.Pow(-2 * t + 2, 3) / 2;
+    }
+    private static double Back(double t)
+    {
+        t = Clamp01(t);
+        const double c1 = 1.70158;
+        const double c3 = c1 + 1;
+        return 1 + c3 * Math.Pow(t - 1, 3) + c1 * Math.Pow(t - 1, 2);
+    }
+
+    private void TickGreeting()
+    {
+        if (!_greetingActive) return;
+        _greetingTime = _greetingClock.Elapsed.TotalSeconds;
+        var t = _greetingTime;
+
+        // Ported choreography from the reference: 0→0.45 rise, 1.25→1.52 dip,
+        // 1.52→2.80 sway/wave, 2.72 badge, 3.85→4.15 state tint.
+        var grow = Back(Seg(t, .02, .45));
+        CharacterOffset.Y = 28 - 25 * Out(Seg(t, .02, .45));
+        CharacterScale.ScaleY = Math.Max(.08, grow);
+        CharacterScale.ScaleX = 1 + .04 * Math.Sin(Math.PI * Seg(t, 1.25, 1.52));
+        CharacterRotate.Angle = t >= 1.52 && t < 2.58
+            ? Math.Sin((t - 1.52) * 2 * Math.PI * .9) * 4.5
+            : 0;
+
+        if (t >= 1.25 && t < 1.52)
+        {
+            var k = Math.Sin(Math.PI * Seg(t, 1.25, 1.52));
+            CharacterOffset.Y += 9 * k;
+        }
+        else if (t >= 1.52 && t < 2.80)
+        {
+            var w = t - 1.52;
+            var fade = 1 - Seg(t, 2.58, 2.80);
+            CharacterOffset.X = Math.Sin(w * 2 * Math.PI * .9) * 3.2 * fade;
+        }
+        else CharacterOffset.X = 0;
+
+        var happy = t >= .60 && t < .82;
+        var content = (t >= 2.45 && t < 2.58) || (t >= 2.85 && t < 3.20);
+        var open = 1.0;
+        foreach (var tb in new[] { 1.95, 3.80 })
+        {
+            var k = Seg(t, tb, tb + .12);
+            if (k > 0 && k < 1) open = Math.Min(open, 1 - Math.Sin(Math.PI * k) * .94);
+        }
+        LeftEyeScale.ScaleY = Math.Max(.08, open);
+        RightEyeScale.ScaleY = Math.Max(.08, open);
+
+        if (happy || content)
+        {
+            LeftEye.Height = 4; RightEye.Height = 4;
+            LeftEye.Margin = new Thickness(15, 18, 0, 0);
+            RightEye.Margin = new Thickness(0, 18, 15, 0);
+        }
+        else
+        {
+            LeftEye.Height = 9; RightEye.Height = 9;
+            LeftEye.Margin = new Thickness(15, 15, 0, 0);
+            RightEye.Margin = new Thickness(0, 15, 15, 0);
+        }
+
+        var lookX = t >= 1.52 && t < 2.45 ? .55 : (t >= 2.45 && t < 3.20 ? -.3 : 0);
+        var lookY = t >= 1.52 && t < 2.45 ? -.45 : (t >= 2.45 && t < 3.20 ? .6 : 0);
+        var maxShift = 3.0;
+        _targetEyeShift = lookX * maxShift;
+        _eyeShift += (_targetEyeShift - _eyeShift) * .18;
+        if (LeftEye.RenderTransform is TranslateTransform lt) lt.X = _eyeShift;
+        else LeftEye.RenderTransform = new TranslateTransform(_eyeShift, 0);
+        if (RightEye.RenderTransform is TranslateTransform rt) rt.X = _eyeShift;
+        else RightEye.RenderTransform = new TranslateTransform(_eyeShift, 0);
+
+        var badge = Back(Seg(t, 2.72, 3.0));
+        Hint.Text = badge > .01 ? "✨ Claude is working" : "Coucou • watching Claude";
+        RootBorder.Background = t >= 3.85 && t < 4.15 ? "#E9185FA3" : "#E9000000";
+
+        if (!_greetingHeld && t >= _autoCollapseAt)
+        {
+            CollapseGreeting();
+        }
+    }
+
+    private void CollapseGreeting()
+    {
+        if (!_greetingActive) return;
+        _greetingHeld = false;
+        var start = _greetingTime;
+        _greetingActive = false;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        var began = Stopwatch.StartNew();
+        timer.Tick += (_, _) =>
+        {
+            var k = InOut(Seg(began.Elapsed.TotalSeconds, 0, .34));
+            CharacterOffset.Y = 3 + 25 * k;
+            CharacterScale.ScaleX = 1;
+            CharacterScale.ScaleY = 1 - .72 * k;
+            IslandScale.ScaleX = 1 - .05 * k;
+            timer.Stop();
+            MainControls.Visibility = Visibility.Visible;
+        };
+        MainControls.Visibility = Visibility.Collapsed;
+        timer.Start();
     }
 
     private void Blink()
