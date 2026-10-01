@@ -268,6 +268,9 @@ public partial class MainWindow : Window
         PermissionCard.Visibility = Visibility.Collapsed;
         AskCard.Visibility = Visibility.Visible;
         Height = 190;
+        var active = GetActiveSession();
+        if (active is not null && !string.IsNullOrWhiteSpace(active.Cwd) && Directory.Exists(active.Cwd))
+            _workingDirectory = active.Cwd;
         AskResponse.Text = "";
         if (!string.IsNullOrWhiteSpace(_droppedFile))
             AskInput.Text = $"Review this file and tell me what I should do next: \"{_droppedFile}\"";
