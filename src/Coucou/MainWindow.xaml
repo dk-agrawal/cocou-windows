@@ -37,7 +37,7 @@
           <TextBlock x:Name="Status" Text="Watching Claude Code…"
                      Foreground="#FFD7D7E0" FontSize="11" Margin="0,3,0,0"/>
           <ComboBox x:Name="SessionPicker" SelectionChanged="OnSessionSelectionChanged"
-                    DisplayMemberPath="Project" SelectedValuePath="Id"
+                    DisplayMemberPath="DisplayName" SelectedValuePath="Id"
                     FontSize="9" Height="22" Margin="0,5,0,0"
                     Background="#FFF7F3EA" BorderThickness="0"
                     Foreground="#FF2B2830"/>
