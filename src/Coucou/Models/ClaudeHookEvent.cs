@@ -19,4 +19,10 @@ public sealed class ClaudeHookEvent
 
     [JsonPropertyName("tool_input")]
     public JsonElement ToolInput { get; init; }
+
+    [JsonPropertyName("notification_type")]
+    public string NotificationType { get; init; } = "";
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = "";
 }
