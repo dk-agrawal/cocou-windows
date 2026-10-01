@@ -46,7 +46,8 @@ public sealed class ClaudeSessionRegistry
                 project,
                 current?.Terminal ?? "Unknown terminal",
                 state,
-                hook.Message);
+                hook.Message,
+                string.IsNullOrWhiteSpace(hook.Cwd) ? current?.Cwd ?? "" : hook.Cwd);
         }
     }
 }
