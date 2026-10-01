@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private sealed record PermissionPrompt(Guid Id, ClaudeHookEvent Hook, string Command, TaskCompletionSource<string?> Completion);
     private readonly Queue<PermissionPrompt> _permissionQueue = new();
     private PermissionPrompt? _activePermission;
+    private string? _activeSessionId;
     private int _pokes;
 
     public MainWindow(ClaudeSessionDiscovery discovery, LocalSettings settings)
@@ -136,7 +137,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var active = sessions[0];
+        var active = sessions.FirstOrDefault(s => s.Id == _activeSessionId) ?? sessions[0];
+        if (_activeSessionId != active.Id) _activeSessionId = active.Id;
+        SessionPicker.ItemsSource = sessions;
+        SessionPicker.SelectedValue = active.Id;
         Status.Text = active.State switch
         {
             SessionState.Working => $"Working • {active.Project}",
@@ -204,11 +208,29 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void OnSessionSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (SessionPicker.SelectedItem is not ClaudeSession active) return;
+        _activeSessionId = active.Id;
+        if (!string.IsNullOrWhiteSpace(active.Cwd) && Directory.Exists(active.Cwd))
+        {
+            _workingDirectory = active.Cwd;
+            _droppedFile = null;
+        }
+        RefreshStatus();
+    }
+
+    private ClaudeSession? GetActiveSession()
+    {
+        var sessions = _sessions.Snapshot();
+        return sessions.FirstOrDefault(s => s.Id == _activeSessionId) ?? sessions.FirstOrDefault();
+    }
+
     private void OnFocusTerminal(object sender, RoutedEventArgs e) => FocusTerminal();
 
     private void FocusTerminal()
     {
-        var active = _sessions.Snapshot().FirstOrDefault();
+        var active = GetActiveSession();
         var project = active?.Project ?? "";
         if (_terminal.FocusClaude(project))
         {
