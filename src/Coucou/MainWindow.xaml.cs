@@ -160,8 +160,9 @@ public partial class MainWindow : Window
         var prompt = AskInput.Text.Trim();
         if (string.IsNullOrWhiteSpace(prompt)) return;
 
-        if (sender is System.Windows.Controls.Button button)
-            button.IsEnabled = false;
+        var sendButton = sender as System.Windows.Controls.Button;
+        if (sendButton is not null)
+            sendButton.IsEnabled = false;
 
         AskResponse.Text = "Claude is thinking…";
         Status.Text = "Thinking with Claude…";
@@ -176,8 +177,8 @@ public partial class MainWindow : Window
         }
         finally
         {
-            if (sender is System.Windows.Controls.Button button)
-                button.IsEnabled = true;
+            if (sendButton is not null)
+                sendButton.IsEnabled = true;
         }
     }
 
