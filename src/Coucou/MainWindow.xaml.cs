@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly ClaudeBridgeServer _bridge;
     private readonly ClaudeCliService _claude;
     private readonly WindowsTerminalService _terminal;
+    private readonly System.Windows.Forms.NotifyIcon _trayIcon;
     private readonly WindowsTerminalService _terminal;
     private string _workingDirectory = Environment.CurrentDirectory;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
@@ -42,6 +43,7 @@ public partial class MainWindow : Window
         _bridge = new ClaudeBridgeServer(HandleClaudeHookAsync);
         _claude = new ClaudeCliService();
         _terminal = new WindowsTerminalService();
+        _trayIcon = CreateTrayIcon();
         _terminal = new WindowsTerminalService();
         _poll.Tick += (_, _) => RefreshStatus();
         _cursorPoll.Tick += (_, _) => FollowGlobalCursor();
@@ -64,7 +66,35 @@ public partial class MainWindow : Window
         _cursorPoll.Stop();
         _blink.Stop();
         await _bridge.DisposeAsync();
+        _trayIcon.Visible = false;
+        _trayIcon.Dispose();
         base.OnClosed(e);
+    }
+
+    private System.Windows.Forms.NotifyIcon CreateTrayIcon()
+    {
+        var menu = new System.Windows.Forms.ContextMenuStrip();
+        menu.Items.Add("Show Coucou", null, (_, _) => Dispatcher.Invoke(ShowWindow));
+        menu.Items.Add("Open Terminal", null, (_, _) => Dispatcher.Invoke(OnFocusTerminal));
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        menu.Items.Add("Quit Coucou", null, (_, _) => Dispatcher.Invoke(() => Application.Current.Shutdown()));
+
+        var icon = new System.Windows.Forms.NotifyIcon
+        {
+            Icon = System.Drawing.SystemIcons.Application,
+            Text = "Coucou — Claude Code companion",
+            Visible = true,
+            ContextMenuStrip = menu
+        };
+        icon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow);
+        return icon;
+    }
+
+    private void ShowWindow()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
     }
 
     private void PositionTopCenter()
