@@ -184,14 +184,10 @@ public partial class MainWindow : Window
     private async Task<string?> HandleClaudeHookAsync(ClaudeHookEvent hook)
     {
         _sessions.Apply(hook);
-        RefreshStatus();
+        await Dispatcher.InvokeAsync(RefreshStatus);
 
         if (!string.Equals(hook.HookEventName, "PermissionRequest", StringComparison.OrdinalIgnoreCase))
-        {
-            if (hook.HookEventName is "Notification" or "Stop" or "PostToolUseFailure")
-                Dispatcher.Invoke(RefreshStatus);
             return null;
-        }
 
         var toolInput = hook.ToolInput.ValueKind == JsonValueKind.Object ? hook.ToolInput.ToString() : "";
         var command = hook.ToolName switch
