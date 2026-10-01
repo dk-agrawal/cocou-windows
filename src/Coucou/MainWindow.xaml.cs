@@ -27,7 +27,6 @@ public partial class MainWindow : Window
     private readonly WindowsTerminalService _terminal;
     private readonly System.Windows.Forms.NotifyIcon _trayIcon;
     private readonly WindowsStartupService _startup;
-    private readonly WindowsTerminalService _terminal;
     private string _workingDirectory = Environment.CurrentDirectory;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
@@ -46,7 +45,6 @@ public partial class MainWindow : Window
         _terminal = new WindowsTerminalService();
         _startup = new WindowsStartupService();
         _trayIcon = CreateTrayIcon();
-        _terminal = new WindowsTerminalService();
         _poll.Tick += (_, _) => RefreshStatus();
         _cursorPoll.Tick += (_, _) => FollowGlobalCursor();
         _blink.Tick += (_, _) => Blink();
@@ -181,17 +179,17 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void OnDragEnter(object sender, DragEventArgs e)
+    private void OnDragEnter(object sender, System.Windows.DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Effects = e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
         Status.Text = "Ooh, a file 👀";
         e.Handled = true;
     }
 
-    private void OnDrop(object sender, DragEventArgs e)
+    private void OnDrop(object sender, System.Windows.DragEventArgs e)
     {
-        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
-        var files = (string[])e.Data.GetData(DataFormats.FileDrop)!;
+        if (!e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)) return;
+        var files = (string[])e.Data.GetData(System.Windows.DataFormats.FileDrop)!;
         var first = files.FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(first))
         {
@@ -205,22 +203,6 @@ public partial class MainWindow : Window
     private void OnFocusTerminal(object sender, RoutedEventArgs e) => FocusTerminal();
 
     private void FocusTerminal()
-    {
-        var active = _sessions.Snapshot().FirstOrDefault();
-        var project = active?.Project ?? "";
-        if (_terminal.FocusClaude(project))
-        {
-            Hint.Text = "Terminal focused ✓";
-            Status.Text = string.IsNullOrWhiteSpace(project) ? "Claude focused" : $"Focused • {project}";
-        }
-        else
-        {
-            Hint.Text = "Couldn't find the terminal";
-            Status.Text = "Claude terminal not found";
-        }
-    }
-
-    private void OnFocusTerminal(object sender, RoutedEventArgs e)
     {
         var active = _sessions.Snapshot().FirstOrDefault();
         var project = active?.Project ?? "";
