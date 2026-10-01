@@ -30,5 +30,6 @@ public partial class App : System.Windows.Application
         e.Handled = true;
         System.Windows.MessageBox.Show("Coucou hit an unexpected error. Details were saved to %LOCALAPPDATA%\\Coucou\\errors.log.",
             "Coucou", MessageBoxButton.OK, MessageBoxImage.Warning);
+        Current.Shutdown(1);
     }
 }
