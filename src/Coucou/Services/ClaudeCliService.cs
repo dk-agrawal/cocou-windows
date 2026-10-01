@@ -8,20 +8,11 @@ namespace Coucou.Services;
 public sealed class ClaudeCliService
 {
     private readonly LocalSettings _settings;
-    private readonly ConcurrentDictionary<string, Guid> _sessions = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, bool> _started = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LocalSettings _settings;
 
     public ClaudeCliService(LocalSettings settings)
     {
         _settings = settings;
-        foreach (var pair in settings.ClaudeSessions.ToArray())
-        {
-            if (Guid.TryParse(pair.Value, out var id))
-            {
-                _sessions[pair.Key] = id;
-                _started[pair.Key] = true;
-            }
-        }
     }
 
     public async Task<string> AskAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default)
@@ -32,25 +23,11 @@ public sealed class ClaudeCliService
         if (!Directory.Exists(workingDirectory))
             workingDirectory = Environment.CurrentDirectory;
 
-        var projectPath = Path.GetFullPath(workingDirectory);
-        var hasSavedSession = _started.ContainsKey(projectPath);
-        var sessionId = _sessions.GetOrAdd(projectPath, _ => Guid.NewGuid());
-
-        var result = await RunClaudeAsync(prompt, workingDirectory, sessionId, hasSavedSession, cancellationToken);
-
-        // A persisted Claude session can legitimately disappear when Claude cleans up
-        // old conversations or when the project/session state was reset. Do not leave
-        // Coucou permanently stuck on that stale ID: retry once with a new session.
-        if (result.ExitCode != 0 && hasSavedSession && IsSessionResumeError(result.Error))
-        {
-            sessionId = Guid.NewGuid();
-            _sessions[projectPath] = sessionId;
-            _started.TryRemove(projectPath, out _);
-            _settings.ClaudeSessions.Remove(projectPath);
-            _settings.Save();
-
-            result = await RunClaudeAsync(prompt, workingDirectory, sessionId, false, cancellationToken);
-        }
+        // Ask mode intentionally runs as a fresh, stateless Claude Code request.
+        // This avoids coupling the companion to Claude's internal session storage.
+        // Conversation/session continuity can be added later using Claude's supported
+        // resume flow once it is verified against the installed CLI version.
+        var result = await RunClaudeAsync(prompt, workingDirectory, cancellationToken);
 
         if (result.ExitCode != 0)
         {
@@ -59,24 +36,12 @@ public sealed class ClaudeCliService
                 : result.Error.Trim();
         }
 
-        _started[projectPath] = true;
-        _settings.ClaudeSessions[projectPath] = sessionId.ToString();
-        _settings.Save();
         return string.IsNullOrWhiteSpace(result.Output) ? "Claude returned no text." : result.Output.Trim();
-    }
-
-    private static bool IsSessionResumeError(string error)
-    {
-        var text = error.ToLowerInvariant();
-        return (text.Contains("session") || text.Contains("conversation")) &&
-               (text.Contains("not found") || text.Contains("unknown") || text.Contains("invalid") || text.Contains("does not exist"));
     }
 
     private static async Task<(int ExitCode, string Output, string Error)> RunClaudeAsync(
         string prompt,
         string workingDirectory,
-        Guid sessionId,
-        bool resume,
         CancellationToken cancellationToken)
     {
         var start = new ProcessStartInfo
@@ -95,17 +60,6 @@ public sealed class ClaudeCliService
         start.ArgumentList.Add("text");
         start.ArgumentList.Add("--max-turns");
         start.ArgumentList.Add("1");
-
-        if (resume)
-        {
-            start.ArgumentList.Add("--resume");
-            start.ArgumentList.Add(sessionId.ToString());
-        }
-        else
-        {
-            start.ArgumentList.Add("--session-id");
-            start.ArgumentList.Add(sessionId.ToString());
-        }
 
         using var process = new Process { StartInfo = start, EnableRaisingEvents = true };
 
