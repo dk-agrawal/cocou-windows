@@ -96,7 +96,7 @@ public partial class MainWindow : Window
         };
         menu.Items.Add(startupItem);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        menu.Items.Add("Quit Coucou", null, (_, _) => Dispatcher.Invoke(() => Application.Current.Shutdown()));
+        menu.Items.Add("Quit Coucou", null, (_, _) => Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown()));
 
         var icon = new System.Windows.Forms.NotifyIcon
         {
@@ -148,7 +148,7 @@ public partial class MainWindow : Window
     private void Blink()
     {
         var scale = new ScaleTransform(1, 1);
-        Character.RenderTransformOrigin = new Point(.5, .5);
+        Character.RenderTransformOrigin = new System.Windows.Point(.5, .5);
         Character.RenderTransform = scale;
         scale.BeginAnimation(ScaleTransform.ScaleYProperty,
             new DoubleAnimation(1, .18, TimeSpan.FromMilliseconds(90)) { AutoReverse = true });
@@ -158,7 +158,7 @@ public partial class MainWindow : Window
     private void FollowGlobalCursor()
     {
         if (!_settings.CursorTracking || !GetCursorPos(out var cursor)) return;
-        var screenPoint = PointFromScreen(new Point(cursor.X, cursor.Y));
+        var screenPoint = PointFromScreen(new System.Windows.Point(cursor.X, cursor.Y));
         var normalizedX = Math.Clamp(screenPoint.X / Math.Max(1, ActualWidth), 0, 1);
         var shift = (normalizedX - .5) * 5;
         LeftEye.RenderTransform = new TranslateTransform(shift, 0);
