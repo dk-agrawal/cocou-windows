@@ -1,3 +1,5 @@
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -10,9 +12,20 @@ namespace Coucou;
 
 public partial class MainWindow : Window
 {
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT point);
+
     private readonly ClaudeSessionDiscovery _discovery;
     private readonly LocalSettings _settings;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
     private int _pokes;
 
@@ -22,14 +35,15 @@ public partial class MainWindow : Window
         _discovery = discovery;
         _settings = settings;
         _poll.Tick += (_, _) => RefreshStatus();
+        _cursorPoll.Tick += (_, _) => FollowGlobalCursor();
         _blink.Tick += (_, _) => Blink();
-        MouseMove += (_, e) => FollowCursor(e.GetPosition(this));
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         PositionTopCenter();
         _poll.Start();
+        _cursorPoll.Start();
         _blink.Start();
         RefreshStatus();
     }
@@ -71,13 +85,16 @@ public partial class MainWindow : Window
         _blink.Interval = TimeSpan.FromSeconds(Random.Shared.Next(3, 7));
     }
 
-    private void FollowCursor(Point p)
+    private void FollowGlobalCursor()
     {
-        if (!_settings.CursorTracking) return;
-        var shift = (Math.Clamp(p.X / Math.Max(1, ActualWidth), 0, 1) - .5) * 5;
-        var transform = new TranslateTransform(shift, 0);
-        LeftEye.RenderTransform = transform;
-        RightEye.RenderTransform = transform;
+        if (!_settings.CursorTracking || !GetCursorPos(out var cursor)) return;
+
+        var screenPoint = PointFromScreen(new Point(cursor.X, cursor.Y));
+        var normalizedX = Math.Clamp(screenPoint.X / Math.Max(1, ActualWidth), 0, 1);
+        var shift = (normalizedX - .5) * 5;
+
+        LeftEye.RenderTransform = new TranslateTransform(shift, 0);
+        RightEye.RenderTransform = new TranslateTransform(shift, 0);
     }
 
     private void OnMouseDown(object sender, MouseButtonEventArgs e)
