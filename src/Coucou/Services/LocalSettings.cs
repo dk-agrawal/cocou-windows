@@ -16,8 +16,10 @@ public sealed class LocalSettings
     public void Save()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-        File.WriteAllText(_path, JsonSerializer.Serialize(this,
-            new JsonSerializerOptions { WriteIndented = true }));
+        var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+        var tempPath = _path + ".tmp";
+        File.WriteAllText(tempPath, json);
+        File.Move(tempPath, _path, true);
     }
 
     public static LocalSettings Load()
@@ -27,9 +29,13 @@ public sealed class LocalSettings
             var path = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Coucou", "settings.json");
-            return File.Exists(path)
-                ? JsonSerializer.Deserialize<LocalSettings>(File.ReadAllText(path)) ?? new()
-                : new();
+            if (!File.Exists(path)) return new();
+
+            var settings = JsonSerializer.Deserialize<LocalSettings>(File.ReadAllText(path)) ?? new();
+            settings.ClaudeSessions = new Dictionary<string, string>(
+                settings.ClaudeSessions ?? new Dictionary<string, string>(),
+                StringComparer.OrdinalIgnoreCase);
+            return settings;
         }
         catch { return new(); }
     }
