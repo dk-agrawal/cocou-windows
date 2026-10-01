@@ -11,8 +11,10 @@ public sealed class ClaudeSessionRegistry
     public IReadOnlyList<ClaudeSession> Snapshot()
     {
         lock (_gate)
-            return _sessions.Values.OrderByDescending(s => s.State == SessionState.Working)
-                .ThenByDescending(s => s.State == SessionState.Permission)
+            return _sessions.Values
+                .OrderByDescending(s => s.State == SessionState.Permission)
+                .ThenByDescending(s => s.State == SessionState.Working)
+                .ThenByDescending(s => s.State == SessionState.WaitingForInput)
                 .ThenBy(s => s.Project, StringComparer.OrdinalIgnoreCase)
                 .ToList();
     }
