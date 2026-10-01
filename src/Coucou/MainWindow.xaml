@@ -88,10 +88,15 @@
       </StackPanel>
 
       <Border x:Name="AskCard" Grid.Row="1" Visibility="Collapsed"
-              Background="#FFF7F3EA" CornerRadius="16" Padding="11" Margin="0,2,0,0"> Grid.Row="1" Visibility="Collapsed"
               Background="#FFF7F3EA" CornerRadius="16" Padding="11" Margin="0,2,0,0">
         <StackPanel>
-          <TextBlock Text="Ask Claude" FontWeight="SemiBold" Foreground="#FF2B2830" FontSize="12"/>
+          <DockPanel>
+            <Button Content="×" DockPanel.Dock="Right" Click="OnCloseCard"
+                    Padding="6,1" FontSize="14" Background="Transparent"
+                    Foreground="#FF55515B" BorderThickness="0"/>
+            <TextBlock Text="Ask Claude" FontWeight="SemiBold" Foreground="#FF2B2830" FontSize="12"
+                       VerticalAlignment="Center"/>
+          </DockPanel>
           <DockPanel Margin="0,6,0,0">
             <Button Content="Send" DockPanel.Dock="Right" Click="OnSendAsk"
                     Padding="10,5" Background="#FF2B2830" Foreground="White" BorderThickness="0"/>
