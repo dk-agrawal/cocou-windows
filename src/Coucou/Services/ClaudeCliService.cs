@@ -33,8 +33,52 @@ public sealed class ClaudeCliService
             workingDirectory = Environment.CurrentDirectory;
 
         var projectPath = Path.GetFullPath(workingDirectory);
+        var hasSavedSession = _started.ContainsKey(projectPath);
         var sessionId = _sessions.GetOrAdd(projectPath, _ => Guid.NewGuid());
 
+        var result = await RunClaudeAsync(prompt, workingDirectory, sessionId, hasSavedSession, cancellationToken);
+
+        // A persisted Claude session can legitimately disappear when Claude cleans up
+        // old conversations or when the project/session state was reset. Do not leave
+        // Coucou permanently stuck on that stale ID: retry once with a new session.
+        if (result.ExitCode != 0 && hasSavedSession && IsSessionResumeError(result.Error))
+        {
+            sessionId = Guid.NewGuid();
+            _sessions[projectPath] = sessionId;
+            _started.TryRemove(projectPath, out _);
+            _settings.ClaudeSessions.Remove(projectPath);
+            _settings.Save();
+
+            result = await RunClaudeAsync(prompt, workingDirectory, sessionId, false, cancellationToken);
+        }
+
+        if (result.ExitCode != 0)
+        {
+            return string.IsNullOrWhiteSpace(result.Error)
+                ? $"Claude exited with code {result.ExitCode}."
+                : result.Error.Trim();
+        }
+
+        _started[projectPath] = true;
+        _settings.ClaudeSessions[projectPath] = sessionId.ToString();
+        _settings.Save();
+        return string.IsNullOrWhiteSpace(result.Output) ? "Claude returned no text." : result.Output.Trim();
+    }
+
+    private static bool IsSessionResumeError(string error)
+    {
+        var text = error.ToLowerInvariant();
+        return (text.Contains("session") || text.Contains("conversation")) &&
+               (text.Contains("not found") || text.Contains("unknown") || text.Contains("invalid") || text.Contains("does not exist"));
+    }
+
+    private static async Task<(int ExitCode, string Output, string Error)> RunClaudeAsync(
+        string prompt,
+        string workingDirectory,
+        Guid sessionId,
+        bool resume,
+        CancellationToken cancellationToken)
+    {
         var start = new ProcessStartInfo
         {
             FileName = "claude",
@@ -52,7 +96,7 @@ public sealed class ClaudeCliService
         start.ArgumentList.Add("--max-turns");
         start.ArgumentList.Add("1");
 
-        if (_started.ContainsKey(projectPath))
+        if (resume)
         {
             start.ArgumentList.Add("--resume");
             start.ArgumentList.Add(sessionId.ToString());
@@ -68,47 +112,25 @@ public sealed class ClaudeCliService
         try
         {
             if (!process.Start())
-                return "Couldn't start Claude Code.";
+                return (-1, "", "Couldn't start Claude Code.");
 
             var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
             await process.WaitForExitAsync(cancellationToken);
-            var output = await outputTask;
-            var error = await errorTask;
-
-            if (process.ExitCode != 0)
-            {
-                if (error.Contains("session", StringComparison.OrdinalIgnoreCase) &&
-                    error.Contains("not found", StringComparison.OrdinalIgnoreCase))
-                {
-                    _sessions.TryRemove(projectPath, out _);
-                    _started.TryRemove(projectPath, out _);
-                    _settings.ClaudeSessions.Remove(projectPath);
-                    _settings.Save();
-                }
-
-                return string.IsNullOrWhiteSpace(error)
-                    ? $"Claude exited with code {process.ExitCode}."
-                    : error.Trim();
-            }
-
-            _started[projectPath] = true;
-            _settings.ClaudeSessions[projectPath] = sessionId.ToString();
-            _settings.Save();
-            return string.IsNullOrWhiteSpace(output) ? "Claude returned no text." : output.Trim();
+            return (process.ExitCode, await outputTask, await errorTask);
         }
         catch (OperationCanceledException)
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-            return "Ask cancelled.";
+            return (-1, "", "Ask cancelled.");
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
         {
-            return "Claude Code was not found on PATH. Install Claude Code and make sure the `claude` command works in a new terminal.";
+            return (-1, "", "Claude Code was not found on PATH. Install Claude Code and make sure the `claude` command works in a new terminal.");
         }
         catch (Exception ex)
         {
-            return $"Couldn't start Claude Code: {ex.Message}";
+            return (-1, "", $"Couldn't start Claude Code: {ex.Message}");
         }
     }
 }
