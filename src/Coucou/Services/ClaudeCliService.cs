@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using System.ComponentModel;
 
 namespace Coucou.Services;
 
@@ -100,6 +101,10 @@ public sealed class ClaudeCliService
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
             return "Ask cancelled.";
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
+        {
+            return "Claude Code was not found on PATH. Install Claude Code and make sure the `claude` command works in a new terminal.";
         }
         catch (Exception ex)
         {
