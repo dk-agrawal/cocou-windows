@@ -22,6 +22,8 @@ public partial class MainWindow : Window
     private readonly ClaudeSessionDiscovery _discovery;
     private readonly LocalSettings _settings;
     private readonly ClaudeBridgeServer _bridge;
+    private readonly ClaudeCliService _claude;
+    private string _workingDirectory = Environment.CurrentDirectory;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
@@ -34,6 +36,7 @@ public partial class MainWindow : Window
         _discovery = discovery;
         _settings = settings;
         _bridge = new ClaudeBridgeServer(HandleClaudeHookAsync);
+        _claude = new ClaudeCliService();
         _poll.Tick += (_, _) => RefreshStatus();
         _cursorPoll.Tick += (_, _) => FollowGlobalCursor();
         _blink.Tick += (_, _) => Blink();
@@ -132,9 +135,50 @@ public partial class MainWindow : Window
     {
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
         var files = (string[])e.Data.GetData(DataFormats.FileDrop)!;
-        Status.Text = $"Got {Path.GetFileName(files.FirstOrDefault() ?? "file")}";
+        var first = files.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(first))
+        {
+            _workingDirectory = Directory.Exists(first) ? first : Path.GetDirectoryName(first) ?? _workingDirectory;
+            Status.Text = $"Got {Path.GetFileName(first)}";
+        }
         Hint.Text = "Ask Claude what to do with it";
         e.Handled = true;
+    }
+
+    private void OnAskClick(object sender, RoutedEventArgs e)
+    {
+        PermissionCard.Visibility = Visibility.Collapsed;
+        AskCard.Visibility = Visibility.Visible;
+        Height = 190;
+        AskResponse.Text = "";
+        AskInput.Focus();
+        AskInput.SelectAll();
+    }
+
+    private async void OnSendAsk(object sender, RoutedEventArgs e)
+    {
+        var prompt = AskInput.Text.Trim();
+        if (string.IsNullOrWhiteSpace(prompt)) return;
+
+        if (sender is System.Windows.Controls.Button button)
+            button.IsEnabled = false;
+
+        AskResponse.Text = "Claude is thinking…";
+        Status.Text = "Thinking with Claude…";
+        Hint.Text = "This can take a moment";
+
+        try
+        {
+            var response = await _claude.AskAsync(prompt, _workingDirectory);
+            AskResponse.Text = response;
+            Status.Text = "Claude answered ✨";
+            Hint.Text = "Ask another question";
+        }
+        finally
+        {
+            if (sender is System.Windows.Controls.Button button)
+                button.IsEnabled = true;
+        }
     }
 
     private async Task<string?> HandleClaudeHookAsync(ClaudeHookEvent hook)
@@ -168,6 +212,7 @@ public partial class MainWindow : Window
             _permissionDecision = tcs;
             PermissionTitle.Text = $"Allow Claude to use {hook.ToolName}?";
             PermissionCommand.Text = string.IsNullOrWhiteSpace(command) ? "Claude requested a tool permission." : command;
+            AskCard.Visibility = Visibility.Collapsed;
             PermissionCard.Visibility = Visibility.Visible;
             Height = 190;
             Status.Text = "Needs your permission 👀";
