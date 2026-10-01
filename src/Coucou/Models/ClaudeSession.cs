@@ -10,5 +10,6 @@ public sealed record ClaudeSession(
     string Project,
     string Terminal,
     SessionState State,
-    string? Detail = null
+    string? Detail = null,
+    string Cwd = ""
 );
