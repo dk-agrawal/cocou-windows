@@ -23,6 +23,14 @@ public sealed class ClaudeSessionRegistry
 
         lock (_gate)
         {
+            // A real SessionEnd means Claude has closed the session. Remove it from
+            // the live companion list so the session picker does not accumulate stale entries.
+            if (string.Equals(hook.HookEventName, "SessionEnd", StringComparison.OrdinalIgnoreCase))
+            {
+                _sessions.Remove(hook.SessionId);
+                return;
+            }
+
             _sessions.TryGetValue(hook.SessionId, out var current);
             var project = string.IsNullOrWhiteSpace(hook.Cwd)
                 ? current?.Project ?? "Unknown project"
