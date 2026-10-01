@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" Width="390" Height="126"
+        Topmost="True" ShowInTaskbar="False" Width="430" Height="132"
         ResizeMode="NoResize" Loaded="OnLoaded"
         MouseLeftButtonDown="OnMouseDown" AllowDrop="True"
         DragEnter="OnDragEnter" Drop="OnDrop">
@@ -15,11 +15,11 @@
 
       <Grid Grid.Row="0">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="92"/>
+          <ColumnDefinition Width="104"/>
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border x:Name="Character" Width="78" Height="78" CornerRadius="39"
+        <Border x:Name="Character" Width="90" Height="90" CornerRadius="45"
                 Background="#FFF6C98E" VerticalAlignment="Center"
                 RenderTransformOrigin="0.5,0.5">
           <Border.RenderTransform>
@@ -27,25 +27,25 @@
           </Border.RenderTransform>
           <Grid>
             <Ellipse x:Name="LeftEye" Width="12" Height="17" Fill="#FF2B2830"
-                     HorizontalAlignment="Left" Margin="21,20,0,0"
+                     HorizontalAlignment="Left" Margin="25,23,0,0"
                      RenderTransformOrigin="0.5,0.5">
               <Ellipse.RenderTransform>
                 <ScaleTransform x:Name="LeftEyeScale" ScaleX="1" ScaleY="1"/>
               </Ellipse.RenderTransform>
             </Ellipse>
             <Ellipse x:Name="RightEye" Width="12" Height="17" Fill="#FF2B2830"
-                     HorizontalAlignment="Right" Margin="0,20,21,0"
+                     HorizontalAlignment="Right" Margin="0,23,25,0"
                      RenderTransformOrigin="0.5,0.5">
               <Ellipse.RenderTransform>
                 <ScaleTransform x:Name="RightEyeScale" ScaleX="1" ScaleY="1"/>
               </Ellipse.RenderTransform>
             </Ellipse>
             <Border Width="30" Height="12" CornerRadius="6" Background="#FFEA7A6A"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,18"/>
+                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20"/>
             <Ellipse Width="7" Height="4" Fill="#FFFFB0A5"
-                     HorizontalAlignment="Left" Margin="16,49,0,0" Opacity="0.7"/>
+                     HorizontalAlignment="Left" Margin="19,57,0,0" Opacity="0.7"/>
             <Ellipse Width="7" Height="4" Fill="#FFFFB0A5"
-                     HorizontalAlignment="Right" Margin="0,49,16,0" Opacity="0.7"/>
+                     HorizontalAlignment="Right" Margin="0,57,19,0" Opacity="0.7"/>
           </Grid>
         </Border>
 
