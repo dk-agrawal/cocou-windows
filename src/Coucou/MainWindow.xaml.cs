@@ -37,7 +37,9 @@ public partial class MainWindow : Window
     private PermissionPrompt? _activePermission;
     private string? _activeSessionId;
     private bool _updatingSessionPicker;
-    private int _pokes;\n    private double _targetEyeShift;\n    private double _eyeShift;
+    private int _pokes;
+    private double _targetEyeShift;
+    private double _eyeShift;
 
     public MainWindow(ClaudeSessionDiscovery discovery, LocalSettings settings)
     {
