@@ -15,7 +15,7 @@ A tiny, privacy-first Windows desktop companion for Claude Code.
 
 ## Claude Code integration
 
-Coucou uses Claude Code's local hook system. Claude Code exposes a `PermissionRequest` hook that can return an allow/deny decision, so Coucou can show the request in its companion UI and send the user's decision back to Claude Code. citeturn3view0
+Coucou uses Claude Code's local hook system. Claude Code exposes a `PermissionRequest` hook that can return an allow/deny decision, so Coucou can show the request in its companion UI and send the user's decision back to Claude Code.
 
 The repository includes:
 
