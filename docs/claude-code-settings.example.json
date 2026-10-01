@@ -1,0 +1,69 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ""C:\\Program Files\\Coucou\\Coucou.Hook.exe""
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt|agent_needs_input|agent_completed",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ""C:\\Program Files\\Coucou\\Coucou.Hook.exe""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ""C:\\Program Files\\Coucou\\Coucou.Hook.exe""
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ""C:\\Program Files\\Coucou\\Coucou.Hook.exe""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ""C:\\Program Files\\Coucou\\Coucou.Hook.exe""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ""C:\\Program Files\\Coucou\\Coucou.Hook.exe""
+          }
+        ]
+      }
+    ]
+  }
+}
