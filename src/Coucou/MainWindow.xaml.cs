@@ -81,6 +81,18 @@ public partial class MainWindow : Window
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Show Coucou", null, (_, _) => Dispatcher.Invoke(ShowWindow));
         menu.Items.Add("Open Terminal", null, (_, _) => Dispatcher.Invoke(FocusTerminal));
+        var cursorItem = new System.Windows.Forms.ToolStripMenuItem("Cursor Tracking")
+        {
+            Checked = _settings.CursorTracking,
+            CheckOnClick = true
+        };
+        cursorItem.Click += (_, _) =>
+        {
+            _settings.CursorTracking = cursorItem.Checked;
+            _settings.Save();
+            Dispatcher.Invoke(() => Hint.Text = cursorItem.Checked ? "Eyes are watching 👀" : "Cursor tracking off");
+        };
+        menu.Items.Add(cursorItem);
         var startupItem = new System.Windows.Forms.ToolStripMenuItem("Start with Windows")
         {
             Checked = _startup.IsEnabled(),
