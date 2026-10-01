@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private readonly System.Windows.Forms.NotifyIcon _trayIcon;
     private readonly WindowsStartupService _startup;
     private string _workingDirectory = Environment.CurrentDirectory;
+    private string? _droppedFile;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
@@ -194,6 +195,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(first))
         {
             _workingDirectory = Directory.Exists(first) ? first : Path.GetDirectoryName(first) ?? _workingDirectory;
+            _droppedFile = first;
             Status.Text = $"Got {Path.GetFileName(first)}";
         }
         Hint.Text = "Ask Claude what to do with it";
@@ -224,6 +226,8 @@ public partial class MainWindow : Window
         AskCard.Visibility = Visibility.Visible;
         Height = 190;
         AskResponse.Text = "";
+        if (!string.IsNullOrWhiteSpace(_droppedFile))
+            AskInput.Text = $"Review this file and tell me what I should do next: \\\"{_droppedFile}\\\"";
         AskInput.Focus();
         AskInput.SelectAll();
     }
