@@ -227,7 +227,7 @@ public partial class MainWindow : Window
         Height = 190;
         AskResponse.Text = "";
         if (!string.IsNullOrWhiteSpace(_droppedFile))
-            AskInput.Text = $"Review this file and tell me what I should do next: \\\"{_droppedFile}\\\"";
+            AskInput.Text = $"Review this file and tell me what I should do next: \"{_droppedFile}\"";
         AskInput.Focus();
         AskInput.SelectAll();
     }
