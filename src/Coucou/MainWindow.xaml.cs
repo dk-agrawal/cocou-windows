@@ -293,6 +293,18 @@ public partial class MainWindow : Window
             Status.Text = "Claude answered ✨";
             Hint.Text = "Ask another question";
         }
+        catch (OperationCanceledException)
+        {
+            AskResponse.Text = "Claude stopped before answering. Try again when you're ready.";
+            Status.Text = "Claude request stopped";
+            Hint.Text = "Try again";
+        }
+        catch (Exception ex)
+        {
+            AskResponse.Text = $"Couldn't reach Claude: {ex.Message}";
+            Status.Text = "Claude request failed";
+            Hint.Text = "Check Claude Code and try again";
+        }
         finally
         {
             if (sendButton is not null) sendButton.IsEnabled = true;
