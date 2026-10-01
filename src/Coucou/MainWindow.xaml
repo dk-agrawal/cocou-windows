@@ -2,60 +2,84 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" Width="330" Height="112"
+        Topmost="True" ShowInTaskbar="False" Width="390" Height="126"
         ResizeMode="NoResize" Loaded="OnLoaded"
         MouseLeftButtonDown="OnMouseDown" AllowDrop="True"
         DragEnter="OnDragEnter" Drop="OnDrop">
-  <Border Background="#F0121420" CornerRadius="28" Padding="14">
+  <Border Background="#F0121420" CornerRadius="30" Padding="14,12">
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="82"/>
+        <RowDefinition Height="88"/>
         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
       <Grid Grid.Row="0">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="76"/>
+          <ColumnDefinition Width="92"/>
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border x:Name="Character" Width="68" Height="68" CornerRadius="34"
-                Background="#FFF6C98E" VerticalAlignment="Center">
+        <Border x:Name="Character" Width="78" Height="78" CornerRadius="39"
+                Background="#FFF6C98E" VerticalAlignment="Center"
+                RenderTransformOrigin="0.5,0.5">
+          <Border.RenderTransform>
+            <ScaleTransform x:Name="CharacterScale" ScaleX="1" ScaleY="1"/>
+          </Border.RenderTransform>
           <Grid>
-            <Ellipse x:Name="LeftEye" Width="10" Height="14" Fill="#FF2B2830"
-                     HorizontalAlignment="Left" Margin="19,18,0,0"/>
-            <Ellipse x:Name="RightEye" Width="10" Height="14" Fill="#FF2B2830"
-                     HorizontalAlignment="Right" Margin="0,18,19,0"/>
-            <Border Width="24" Height="10" CornerRadius="5" Background="#FFEA7A6A"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,17"/>
+            <Ellipse x:Name="LeftEye" Width="12" Height="17" Fill="#FF2B2830"
+                     HorizontalAlignment="Left" Margin="21,20,0,0"
+                     RenderTransformOrigin="0.5,0.5">
+              <Ellipse.RenderTransform>
+                <ScaleTransform x:Name="LeftEyeScale" ScaleX="1" ScaleY="1"/>
+              </Ellipse.RenderTransform>
+            </Ellipse>
+            <Ellipse x:Name="RightEye" Width="12" Height="17" Fill="#FF2B2830"
+                     HorizontalAlignment="Right" Margin="0,20,21,0"
+                     RenderTransformOrigin="0.5,0.5">
+              <Ellipse.RenderTransform>
+                <ScaleTransform x:Name="RightEyeScale" ScaleX="1" ScaleY="1"/>
+              </Ellipse.RenderTransform>
+            </Ellipse>
+            <Border Width="30" Height="12" CornerRadius="6" Background="#FFEA7A6A"
+                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,18"/>
+            <Ellipse Width="7" Height="4" Fill="#FFFFB0A5"
+                     HorizontalAlignment="Left" Margin="16,49,0,0" Opacity="0.7"/>
+            <Ellipse Width="7" Height="4" Fill="#FFFFB0A5"
+                     HorizontalAlignment="Right" Margin="0,49,16,0" Opacity="0.7"/>
           </Grid>
         </Border>
 
-        <StackPanel Grid.Column="1" Margin="12,2,0,0" VerticalAlignment="Center">
+        <Grid Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
           <TextBlock x:Name="CoucouName" Text="Coucou" Foreground="White"
-                     FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock x:Name="Status" Text="Watching Claude Code…"
-                     Foreground="#FFD7D7E0" FontSize="11" Margin="0,3,0,0"/>
-          <ComboBox x:Name="SessionPicker" SelectionChanged="OnSessionSelectionChanged"
+                     FontSize="17" FontWeight="SemiBold"/>
+          <TextBlock x:Name="Status" Grid.Row="1" Text="Watching Claude Code…"
+                     Foreground="#FFD7D7E0" FontSize="11" Margin="0,2,0,0"/>
+          <ComboBox x:Name="SessionPicker" Grid.Row="2" SelectionChanged="OnSessionSelectionChanged"
                     DisplayMemberPath="DisplayName" SelectedValuePath="Id"
-                    FontSize="9" Height="22" Margin="0,5,0,0"
+                    FontSize="9" Height="23" Margin="0,5,0,0"
                     Background="#FFF7F3EA" BorderThickness="0"
                     Foreground="#FF2B2830"/>
-          <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+          <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,5,0,0">
             <TextBlock x:Name="Hint" Text="Drop a file •"
                        Foreground="#FF9E9DAB" FontSize="10" VerticalAlignment="Center"/>
-            <Button Content="Terminal" Click="OnFocusTerminal" Margin="6,0,0,0"
+            <Button Content="Terminal" Click="OnFocusTerminal" Margin="7,0,0,0"
                     Padding="7,3" FontSize="9" Background="#FFEDE7DE"
                     Foreground="#FF2B2830" BorderThickness="0"/>
             <Button Content="Ask Claude" Click="OnAskClick" Margin="4,0,0,0"
                     Padding="8,3" FontSize="9" Background="#FFF7F3EA"
                     Foreground="#FF2B2830" BorderThickness="0"/>
           </StackPanel>
-        </StackPanel>
+        </Grid>
       </Grid>
 
       <Border x:Name="AskCard" Grid.Row="1" Visibility="Collapsed"
-              Background="#FFF7F3EA" CornerRadius="16" Padding="10" Margin="0,2,0,0">
+              Background="#FFF7F3EA" CornerRadius="16" Padding="11" Margin="0,2,0,0">
         <StackPanel>
           <TextBlock Text="Ask Claude" FontWeight="SemiBold" Foreground="#FF2B2830" FontSize="12"/>
           <DockPanel Margin="0,6,0,0">
@@ -71,7 +95,7 @@
       </Border>
 
       <Border x:Name="PermissionCard" Grid.Row="1" Visibility="Collapsed"
-              Background="#FFF7F3EA" CornerRadius="16" Padding="10" Margin="0,2,0,0">
+              Background="#FFF7F3EA" CornerRadius="16" Padding="11" Margin="0,2,0,0">
         <StackPanel>
           <TextBlock x:Name="PermissionTitle" Text="Claude needs permission"
                      FontWeight="SemiBold" Foreground="#FF2B2830" FontSize="12"/>
