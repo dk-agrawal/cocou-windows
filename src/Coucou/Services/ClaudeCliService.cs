@@ -8,7 +8,6 @@ namespace Coucou.Services;
 public sealed class ClaudeCliService
 {
     private readonly LocalSettings _settings;
-    private readonly LocalSettings _settings;
 
     public ClaudeCliService(LocalSettings settings)
     {
