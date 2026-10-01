@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private readonly ClaudeCliService _claude;
     private readonly WindowsTerminalService _terminal;
     private readonly System.Windows.Forms.NotifyIcon _trayIcon;
+    private readonly WindowsStartupService _startup;
     private readonly WindowsTerminalService _terminal;
     private string _workingDirectory = Environment.CurrentDirectory;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
@@ -43,6 +44,7 @@ public partial class MainWindow : Window
         _bridge = new ClaudeBridgeServer(HandleClaudeHookAsync);
         _claude = new ClaudeCliService();
         _terminal = new WindowsTerminalService();
+        _startup = new WindowsStartupService();
         _trayIcon = CreateTrayIcon();
         _terminal = new WindowsTerminalService();
         _poll.Tick += (_, _) => RefreshStatus();
@@ -76,6 +78,25 @@ public partial class MainWindow : Window
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Show Coucou", null, (_, _) => Dispatcher.Invoke(ShowWindow));
         menu.Items.Add("Open Terminal", null, (_, _) => Dispatcher.Invoke(FocusTerminal));
+        var startupItem = new System.Windows.Forms.ToolStripMenuItem("Start with Windows")
+        {
+            Checked = _startup.IsEnabled(),
+            CheckOnClick = true
+        };
+        startupItem.Click += (_, _) =>
+        {
+            var enabled = startupItem.Checked;
+            if (_startup.TrySetEnabled(enabled))
+            {
+                _settings.StartWithWindows = enabled;
+                _settings.Save();
+            }
+            else
+            {
+                startupItem.Checked = _startup.IsEnabled();
+            }
+        };
+        menu.Items.Add(startupItem);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add("Quit Coucou", null, (_, _) => Dispatcher.Invoke(() => Application.Current.Shutdown()));
 
