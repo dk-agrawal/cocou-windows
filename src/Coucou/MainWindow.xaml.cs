@@ -32,7 +32,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
-    private TaskCompletionSource<string?>? _permissionDecision;
+    private sealed record PermissionPrompt(Guid Id, ClaudeHookEvent Hook, string Command, TaskCompletionSource<string?> Completion);
+    private readonly Queue<PermissionPrompt> _permissionQueue = new();
+    private PermissionPrompt? _activePermission;
     private int _pokes;
 
     public MainWindow(ClaudeSessionDiscovery discovery, LocalSettings settings)
@@ -273,20 +275,8 @@ public partial class MainWindow : Window
         };
 
         var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        await Dispatcher.InvokeAsync(() =>
-        {
-            _permissionDecision?.TrySetResult(null);
-            _permissionDecision = tcs;
-            PermissionTitle.Text = $"Allow Claude to use {hook.ToolName}?";
-            PermissionCommand.Text = string.IsNullOrWhiteSpace(command) ? "Claude requested a tool permission." : command;
-            AskCard.Visibility = Visibility.Collapsed;
-            PermissionCard.Visibility = Visibility.Visible;
-            Height = 190;
-            Status.Text = "Needs your permission 👀";
-            Hint.Text = "Claude is waiting";
-            Activate();
-        });
-
+        var prompt = new PermissionPrompt(Guid.NewGuid(), hook, command, tcs);
+        await Dispatcher.InvokeAsync(() => EnqueuePermission(prompt));
         return await tcs.Task;
     }
 
@@ -297,11 +287,43 @@ public partial class MainWindow : Window
             : "";
     }
 
+    private void EnqueuePermission(PermissionPrompt prompt)
+    {
+        _permissionQueue.Enqueue(prompt);
+        ShowNextPermission();
+    }
+
+    private void ShowNextPermission()
+    {
+        if (_activePermission is not null || _permissionQueue.Count == 0) return;
+
+        _activePermission = _permissionQueue.Dequeue();
+        var prompt = _activePermission;
+        var project = string.IsNullOrWhiteSpace(prompt.Hook.Cwd)
+            ? "Claude"
+            : Path.GetFileName(prompt.Hook.Cwd.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        PermissionTitle.Text = $"Allow {project} to use {prompt.Hook.ToolName}?";
+        PermissionCommand.Text = string.IsNullOrWhiteSpace(prompt.Command)
+            ? "Claude requested a tool permission."
+            : prompt.Command;
+        AskCard.Visibility = Visibility.Collapsed;
+        PermissionCard.Visibility = Visibility.Visible;
+        Height = 190;
+        Status.Text = _permissionQueue.Count == 0
+            ? "Needs your permission 👀"
+            : $"Needs permission 👀 (+{_permissionQueue.Count} queued)";
+        Hint.Text = "Claude is waiting";
+        Activate();
+    }
+
     private void OnAllowPermission(object sender, RoutedEventArgs e) => ResolvePermission("allow");
     private void OnDenyPermission(object sender, RoutedEventArgs e) => ResolvePermission("deny");
 
     private void ResolvePermission(string behavior)
     {
+        var prompt = _activePermission;
+        if (prompt is null) return;
+
         var response = JsonSerializer.Serialize(new
         {
             hookSpecificOutput = new
@@ -311,11 +333,12 @@ public partial class MainWindow : Window
             }
         });
 
-        _permissionDecision?.TrySetResult(response);
-        _permissionDecision = null;
+        prompt.Completion.TrySetResult(response);
+        _activePermission = null;
         PermissionCard.Visibility = Visibility.Collapsed;
         Height = 112;
         Status.Text = behavior == "allow" ? "Allowed ✓" : "Denied";
-        Hint.Text = "Watching Claude Code…";
+        Hint.Text = _permissionQueue.Count > 0 ? "Next permission waiting…" : "Watching Claude Code…";
+        ShowNextPermission();
     }
 }
