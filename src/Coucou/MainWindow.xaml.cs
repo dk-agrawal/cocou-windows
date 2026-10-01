@@ -30,14 +30,14 @@ public partial class MainWindow : Window
     private string _workingDirectory = Environment.CurrentDirectory;
     private string? _droppedFile;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
-    private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
     private sealed record PermissionPrompt(Guid Id, ClaudeHookEvent Hook, string Command, TaskCompletionSource<string?> Completion);
     private readonly Queue<PermissionPrompt> _permissionQueue = new();
     private PermissionPrompt? _activePermission;
     private string? _activeSessionId;
     private bool _updatingSessionPicker;
-    private int _pokes;
+    private int _pokes;\n    private double _targetEyeShift;\n    private double _eyeShift;
 
     public MainWindow(ClaudeSessionDiscovery discovery, LocalSettings settings)
     {
@@ -173,34 +173,55 @@ public partial class MainWindow : Window
 
     private void Blink()
     {
-        var scale = new ScaleTransform(1, 1);
-        Character.RenderTransformOrigin = new System.Windows.Point(.5, .5);
-        Character.RenderTransform = scale;
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(1, .18, TimeSpan.FromMilliseconds(90)) { AutoReverse = true });
+        var left = new DoubleAnimation(1, 0.12, TimeSpan.FromMilliseconds(75))
+        {
+            AutoReverse = true,
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+        };
+        var right = left.Clone();
+        LeftEyeScale.BeginAnimation(ScaleTransform.ScaleYProperty, left);
+        RightEyeScale.BeginAnimation(ScaleTransform.ScaleYProperty, right);
         _blink.Interval = TimeSpan.FromSeconds(Random.Shared.Next(3, 7));
     }
 
     private void FollowGlobalCursor()
     {
-        if (!_settings.CursorTracking || !GetCursorPos(out var cursor)) return;
+        if (!_settings.CursorTracking || !GetCursorPos(out var cursor))
+            return;
+
         var screenPoint = PointFromScreen(new System.Windows.Point(cursor.X, cursor.Y));
         var normalizedX = Math.Clamp(screenPoint.X / Math.Max(1, ActualWidth), 0, 1);
-        var shift = (normalizedX - .5) * 5;
-        LeftEye.RenderTransform = new TranslateTransform(shift, 0);
-        RightEye.RenderTransform = new TranslateTransform(shift, 0);
+        _targetEyeShift = (normalizedX - .5) * 8;
+        _eyeShift += (_targetEyeShift - _eyeShift) * 0.28;
+
+        if (LeftEye.RenderTransform is not TranslateTransform left)
+        {
+            left = new TranslateTransform();
+            LeftEye.RenderTransform = left;
+        }
+        if (RightEye.RenderTransform is not TranslateTransform right)
+        {
+            right = new TranslateTransform();
+            RightEye.RenderTransform = right;
+        }
+        left.X = _eyeShift;
+        right.X = _eyeShift;
     }
 
     private void OnMouseDown(object sender, MouseButtonEventArgs e)
     {
         _pokes++;
-        var scale = new ScaleTransform(.78, .84);
-        Character.RenderTransformOrigin = new System.Windows.Point(.5, .5);
-        Character.RenderTransform = scale;
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(.78, 1, TimeSpan.FromMilliseconds(_pokes >= 5 ? 130 : 90)));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(.84, 1, TimeSpan.FromMilliseconds(_pokes >= 5 ? 130 : 90)));
+        var duration = TimeSpan.FromMilliseconds(_pokes >= 5 ? 150 : 110);
+        CharacterScale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(.82, 1, duration)
+            {
+                EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.25 }
+            });
+        CharacterScale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(.86, 1, duration)
+            {
+                EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.25 }
+            });
         Hint.Text = _pokes >= 5 ? "Okay okay 😵‍💫" : "boop!";
         e.Handled = true;
     }
