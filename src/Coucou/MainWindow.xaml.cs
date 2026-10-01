@@ -59,7 +59,6 @@ public partial class MainWindow : Window
         _trayIcon = CreateTrayIcon();
         _poll.Tick += (_, _) => RefreshStatus();
         _blink.Tick += (_, _) => Blink();
-        _poll.Tick += (_, _) => TickGreeting();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -273,22 +272,30 @@ public partial class MainWindow : Window
     private void CollapseGreeting()
     {
         if (!_greetingActive) return;
-        _greetingHeld = false;
-        var start = _greetingTime;
         _greetingActive = false;
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        MainControls.Visibility = Visibility.Collapsed;
+
         var began = Stopwatch.StartNew();
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         timer.Tick += (_, _) =>
         {
             var k = InOut(Seg(began.Elapsed.TotalSeconds, 0, .34));
             CharacterOffset.Y = 3 + 25 * k;
+            CharacterOffset.X = 0;
             CharacterScale.ScaleX = 1;
             CharacterScale.ScaleY = 1 - .72 * k;
             IslandScale.ScaleX = 1 - .05 * k;
-            timer.Stop();
-            MainControls.Visibility = Visibility.Visible;
+            if (k >= 1)
+            {
+                timer.Stop();
+                MainControls.Visibility = Visibility.Visible;
+                Height = 150;
+                IslandScale.ScaleX = 1;
+                IslandScale.ScaleY = 1;
+                CharacterOffset.Y = 3;
+                CharacterScale.ScaleY = 1;
+            }
         };
-        MainControls.Visibility = Visibility.Collapsed;
         timer.Start();
     }
 
@@ -305,7 +312,12 @@ public partial class MainWindow : Window
         _blink.Interval = TimeSpan.FromSeconds(Random.Shared.Next(3, 7));
     }
 
-    private void OnRendering(object? sender, EventArgs e) => FollowGlobalCursor();
+    private void OnRendering(object? sender, EventArgs e)
+    {
+        FollowGlobalCursor();
+        if (_greetingActive)
+            TickGreeting();
+    }
 
     private void FollowGlobalCursor()
     {
@@ -410,6 +422,7 @@ public partial class MainWindow : Window
     private void OnAskClick(object sender, RoutedEventArgs e)
     {
         PermissionCard.Visibility = Visibility.Collapsed;
+        MainControls.Visibility = Visibility.Collapsed;
         AskCard.Visibility = Visibility.Visible;
         Height = 190;
         var active = GetActiveSession();
@@ -420,6 +433,16 @@ public partial class MainWindow : Window
             AskInput.Text = $"Review this file and tell me what I should do next: \"{_droppedFile}\"";
         AskInput.Focus();
         AskInput.SelectAll();
+    }
+
+    private void OnCloseCard(object sender, RoutedEventArgs e)
+    {
+        AskCard.Visibility = Visibility.Collapsed;
+        PermissionCard.Visibility = Visibility.Collapsed;
+        MainControls.Visibility = Visibility.Visible;
+        Height = 150;
+        Status.Text = "Watching Claude Code…";
+        Hint.Text = "Drop a file •";
     }
 
     private async void OnSendAsk(object sender, RoutedEventArgs e)
@@ -506,6 +529,7 @@ public partial class MainWindow : Window
         PermissionCommand.Text = string.IsNullOrWhiteSpace(prompt.Command)
             ? "Claude requested a tool permission."
             : prompt.Command;
+        MainControls.Visibility = Visibility.Collapsed;
         AskCard.Visibility = Visibility.Collapsed;
         PermissionCard.Visibility = Visibility.Visible;
         Height = 190;
@@ -536,7 +560,8 @@ public partial class MainWindow : Window
         prompt.Completion.TrySetResult(response);
         _activePermission = null;
         PermissionCard.Visibility = Visibility.Collapsed;
-        Height = 112;
+        MainControls.Visibility = Visibility.Visible;
+        Height = 150;
         Status.Text = behavior == "allow" ? "Allowed ✓" : "Denied";
         Hint.Text = _permissionQueue.Count > 0 ? "Next permission waiting…" : "Watching Claude Code…";
         ShowNextPermission();
