@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly LocalSettings _settings;
     private readonly ClaudeBridgeServer _bridge;
     private readonly ClaudeCliService _claude;
+    private readonly WindowsTerminalService _terminal;
     private string _workingDirectory = Environment.CurrentDirectory;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(50) };
@@ -39,6 +40,7 @@ public partial class MainWindow : Window
         _settings = settings;
         _bridge = new ClaudeBridgeServer(HandleClaudeHookAsync);
         _claude = new ClaudeCliService();
+        _terminal = new WindowsTerminalService();
         _poll.Tick += (_, _) => RefreshStatus();
         _cursorPoll.Tick += (_, _) => FollowGlobalCursor();
         _blink.Tick += (_, _) => Blink();
@@ -145,6 +147,22 @@ public partial class MainWindow : Window
         }
         Hint.Text = "Ask Claude what to do with it";
         e.Handled = true;
+    }
+
+    private void OnFocusTerminal(object sender, RoutedEventArgs e)
+    {
+        var active = _sessions.Snapshot().FirstOrDefault();
+        var project = active?.Project ?? "";
+        if (_terminal.FocusClaude(project))
+        {
+            Hint.Text = "Terminal focused ✓";
+            Status.Text = string.IsNullOrWhiteSpace(project) ? "Claude focused" : $"Focused • {project}";
+        }
+        else
+        {
+            Hint.Text = "Couldn't find the terminal";
+            Status.Text = "Claude terminal not found";
+        }
     }
 
     private void OnAskClick(object sender, RoutedEventArgs e)
