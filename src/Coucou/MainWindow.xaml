@@ -39,7 +39,10 @@
           <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
             <TextBlock x:Name="Hint" Text="Drop a file •"
                        Foreground="#FF9E9DAB" FontSize="10" VerticalAlignment="Center"/>
-            <Button Content="Ask Claude" Click="OnAskClick" Margin="6,0,0,0"
+            <Button Content="Terminal" Click="OnFocusTerminal" Margin="6,0,0,0"
+                    Padding="7,3" FontSize="9" Background="#FFEDE7DE"
+                    Foreground="#FF2B2830" BorderThickness="0"/>
+            <Button Content="Ask Claude" Click="OnAskClick" Margin="4,0,0,0"
                     Padding="8,3" FontSize="9" Background="#FFF7F3EA"
                     Foreground="#FF2B2830" BorderThickness="0"/>
           </StackPanel>
