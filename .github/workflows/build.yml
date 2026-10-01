@@ -13,9 +13,15 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Publish
+
+      - name: Publish Coucou
         run: dotnet publish src/Coucou/Coucou.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish
-      - uses: actions/upload-artifact@v4
+
+      - name: Publish Claude hook helper
+        run: dotnet publish src/Coucou.Hook/Coucou.Hook.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
         with:
           name: Coucou-win-x64
           path: publish/
