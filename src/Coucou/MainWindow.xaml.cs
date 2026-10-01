@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly Queue<PermissionPrompt> _permissionQueue = new();
     private PermissionPrompt? _activePermission;
     private string? _activeSessionId;
+    private bool _updatingSessionPicker;
     private int _pokes;
 
     public MainWindow(ClaudeSessionDiscovery discovery, LocalSettings settings)
@@ -139,8 +140,10 @@ public partial class MainWindow : Window
 
         var active = sessions.FirstOrDefault(s => s.Id == _activeSessionId) ?? sessions[0];
         if (_activeSessionId != active.Id) _activeSessionId = active.Id;
+        _updatingSessionPicker = true;
         SessionPicker.ItemsSource = sessions;
         SessionPicker.SelectedValue = active.Id;
+        _updatingSessionPicker = false;
         Status.Text = active.State switch
         {
             SessionState.Working => $"Working • {active.Project}",
@@ -210,7 +213,7 @@ public partial class MainWindow : Window
 
     private void OnSessionSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        if (SessionPicker.SelectedItem is not ClaudeSession active) return;
+        if (_updatingSessionPicker || SessionPicker.SelectedItem is not ClaudeSession active) return;
         _activeSessionId = active.Id;
         if (!string.IsNullOrWhiteSpace(active.Cwd) && Directory.Exists(active.Cwd))
         {
