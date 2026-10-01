@@ -75,7 +75,7 @@ public partial class MainWindow : Window
     {
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Show Coucou", null, (_, _) => Dispatcher.Invoke(ShowWindow));
-        menu.Items.Add("Open Terminal", null, (_, _) => Dispatcher.Invoke(OnFocusTerminal));
+        menu.Items.Add("Open Terminal", null, (_, _) => Dispatcher.Invoke(FocusTerminal));
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add("Quit Coucou", null, (_, _) => Dispatcher.Invoke(() => Application.Current.Shutdown()));
 
@@ -181,7 +181,9 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void OnFocusTerminal(object sender, RoutedEventArgs e)
+    private void OnFocusTerminal(object sender, RoutedEventArgs e) => FocusTerminal();
+
+    private void FocusTerminal()
     {
         var active = _sessions.Snapshot().FirstOrDefault();
         var project = active?.Project ?? "";
