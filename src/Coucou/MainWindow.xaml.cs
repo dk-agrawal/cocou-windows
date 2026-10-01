@@ -169,7 +169,7 @@ public partial class MainWindow : Window
     {
         _pokes++;
         var scale = new ScaleTransform(.78, .84);
-        Character.RenderTransformOrigin = new Point(.5, .5);
+        Character.RenderTransformOrigin = new System.Windows.Point(.5, .5);
         Character.RenderTransform = scale;
         scale.BeginAnimation(ScaleTransform.ScaleXProperty,
             new DoubleAnimation(.78, 1, TimeSpan.FromMilliseconds(_pokes >= 5 ? 130 : 90)));
