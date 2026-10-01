@@ -261,7 +261,7 @@ public partial class MainWindow : Window
 
         var badge = Back(Seg(t, 2.72, 3.0));
         Hint.Text = badge > .01 ? "✨ Claude is working" : "Coucou • watching Claude";
-        RootBorder.Background = (Brush)new BrushConverter().ConvertFromString(t >= 3.85 && t < 4.15 ? "#E9185FA3" : "#E9000000")!;
+        RootBorder.Background = (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(t >= 3.85 && t < 4.15 ? "#E9185FA3" : "#E9000000")!;
 
         if (!_greetingHeld && t >= _autoCollapseAt)
         {
