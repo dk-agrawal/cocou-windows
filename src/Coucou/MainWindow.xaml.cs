@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private static extern bool GetCursorPos(out POINT point);
 
     private readonly ClaudeSessionDiscovery _discovery;
+    private readonly ClaudeSessionRegistry _sessions;
     private readonly LocalSettings _settings;
     private readonly ClaudeBridgeServer _bridge;
     private readonly ClaudeCliService _claude;
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _discovery = discovery;
+        _sessions = new ClaudeSessionRegistry();
         _settings = settings;
         _bridge = new ClaudeBridgeServer(HandleClaudeHookAsync);
         _claude = new ClaudeCliService();
@@ -70,7 +72,8 @@ public partial class MainWindow : Window
 
     private void RefreshStatus()
     {
-        var sessions = _discovery.Discover();
+        var sessions = _sessions.Snapshot();
+        if (sessions.Count == 0) sessions = _discovery.Discover();
         if (sessions.Count == 0)
         {
             Status.Text = "Waiting for Claude Code…";
@@ -82,7 +85,9 @@ public partial class MainWindow : Window
         {
             SessionState.Working => $"Working • {active.Project}",
             SessionState.Permission => $"Needs permission • {active.Project}",
+            SessionState.WaitingForInput => $"Claude is waiting • {active.Project}",
             SessionState.Error => $"Something broke • {active.Project}",
+            SessionState.Finished => $"Finished • {active.Project}",
             _ => active.Project
         };
     }
@@ -100,11 +105,9 @@ public partial class MainWindow : Window
     private void FollowGlobalCursor()
     {
         if (!_settings.CursorTracking || !GetCursorPos(out var cursor)) return;
-
         var screenPoint = PointFromScreen(new Point(cursor.X, cursor.Y));
         var normalizedX = Math.Clamp(screenPoint.X / Math.Max(1, ActualWidth), 0, 1);
         var shift = (normalizedX - .5) * 5;
-
         LeftEye.RenderTransform = new TranslateTransform(shift, 0);
         RightEye.RenderTransform = new TranslateTransform(shift, 0);
     }
@@ -125,8 +128,7 @@ public partial class MainWindow : Window
 
     private void OnDragEnter(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         Status.Text = "Ooh, a file 👀";
         e.Handled = true;
     }
@@ -161,9 +163,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(prompt)) return;
 
         var sendButton = sender as System.Windows.Controls.Button;
-        if (sendButton is not null)
-            sendButton.IsEnabled = false;
-
+        if (sendButton is not null) sendButton.IsEnabled = false;
         AskResponse.Text = "Claude is thinking…";
         Status.Text = "Thinking with Claude…";
         Hint.Text = "This can take a moment";
@@ -177,26 +177,23 @@ public partial class MainWindow : Window
         }
         finally
         {
-            if (sendButton is not null)
-                sendButton.IsEnabled = true;
+            if (sendButton is not null) sendButton.IsEnabled = true;
         }
     }
 
     private async Task<string?> HandleClaudeHookAsync(ClaudeHookEvent hook)
     {
+        _sessions.Apply(hook);
+        RefreshStatus();
+
         if (!string.Equals(hook.HookEventName, "PermissionRequest", StringComparison.OrdinalIgnoreCase))
         {
             if (hook.HookEventName is "Notification" or "Stop" or "PostToolUseFailure")
-                Dispatcher.Invoke(() => Status.Text = hook.HookEventName == "Stop"
-                    ? "Claude finished ✨"
-                    : $"Claude: {hook.HookEventName}");
+                Dispatcher.Invoke(RefreshStatus);
             return null;
         }
 
-        var toolInput = hook.ToolInput.ValueKind == JsonValueKind.Object
-            ? hook.ToolInput.ToString()
-            : "";
-
+        var toolInput = hook.ToolInput.ValueKind == JsonValueKind.Object ? hook.ToolInput.ToString() : "";
         var command = hook.ToolName switch
         {
             "Bash" or "PowerShell" => TryGetString(hook.ToolInput, "command"),
@@ -204,9 +201,7 @@ public partial class MainWindow : Window
             _ => toolInput
         };
 
-        var tcs = new TaskCompletionSource<string?>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
+        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         await Dispatcher.InvokeAsync(() =>
         {
             _permissionDecision?.TrySetResult(null);
@@ -232,7 +227,6 @@ public partial class MainWindow : Window
     }
 
     private void OnAllowPermission(object sender, RoutedEventArgs e) => ResolvePermission("allow");
-
     private void OnDenyPermission(object sender, RoutedEventArgs e) => ResolvePermission("deny");
 
     private void ResolvePermission(string behavior)
