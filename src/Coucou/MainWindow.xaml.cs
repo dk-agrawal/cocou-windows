@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         _sessions = new ClaudeSessionRegistry();
         _settings = settings;
         _bridge = new ClaudeBridgeServer(HandleClaudeHookAsync);
-        _claude = new ClaudeCliService();
+        _claude = new ClaudeCliService(_settings);
         _terminal = new WindowsTerminalService();
         _startup = new WindowsStartupService();
         _trayIcon = CreateTrayIcon();
