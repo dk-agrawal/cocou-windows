@@ -30,7 +30,6 @@ public partial class MainWindow : Window
     private string _workingDirectory = Environment.CurrentDirectory;
     private string? _droppedFile;
     private readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(2) };
-    private readonly DispatcherTimer _cursorPoll = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(4) };
     private sealed record PermissionPrompt(Guid Id, ClaudeHookEvent Hook, string Command, TaskCompletionSource<string?> Completion);
     private readonly Queue<PermissionPrompt> _permissionQueue = new();
@@ -53,7 +52,6 @@ public partial class MainWindow : Window
         _startup = new WindowsStartupService();
         _trayIcon = CreateTrayIcon();
         _poll.Tick += (_, _) => RefreshStatus();
-        _cursorPoll.Tick += (_, _) => FollowGlobalCursor();
         _blink.Tick += (_, _) => Blink();
     }
 
@@ -61,7 +59,7 @@ public partial class MainWindow : Window
     {
         PositionTopCenter();
         _poll.Start();
-        _cursorPoll.Start();
+        System.Windows.Media.CompositionTarget.Rendering += OnRendering;
         _blink.Start();
         _bridge.Start();
         RefreshStatus();
@@ -70,7 +68,7 @@ public partial class MainWindow : Window
     protected override async void OnClosed(EventArgs e)
     {
         _poll.Stop();
-        _cursorPoll.Stop();
+        System.Windows.Media.CompositionTarget.Rendering -= OnRendering;
         _blink.Stop();
         await _bridge.DisposeAsync();
         _trayIcon.Visible = false;
@@ -185,6 +183,8 @@ public partial class MainWindow : Window
         RightEyeScale.BeginAnimation(ScaleTransform.ScaleYProperty, right);
         _blink.Interval = TimeSpan.FromSeconds(Random.Shared.Next(3, 7));
     }
+
+    private void OnRendering(object? sender, EventArgs e) => FollowGlobalCursor();
 
     private void FollowGlobalCursor()
     {
