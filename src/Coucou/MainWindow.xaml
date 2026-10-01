@@ -36,10 +36,31 @@
                      FontSize="16" FontWeight="SemiBold"/>
           <TextBlock x:Name="Status" Text="Watching Claude Code…"
                      Foreground="#FFD7D7E0" FontSize="11" Margin="0,3,0,0"/>
-          <TextBlock x:Name="Hint" Text="Drop a file • click me"
-                     Foreground="#FF9E9DAB" FontSize="10" Margin="0,6,0,0"/>
+          <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <TextBlock x:Name="Hint" Text="Drop a file •"
+                       Foreground="#FF9E9DAB" FontSize="10" VerticalAlignment="Center"/>
+            <Button Content="Ask Claude" Click="OnAskClick" Margin="6,0,0,0"
+                    Padding="8,3" FontSize="9" Background="#FFF7F3EA"
+                    Foreground="#FF2B2830" BorderThickness="0"/>
+          </StackPanel>
         </StackPanel>
       </Grid>
+
+      <Border x:Name="AskCard" Grid.Row="1" Visibility="Collapsed"
+              Background="#FFF7F3EA" CornerRadius="16" Padding="10" Margin="0,2,0,0">
+        <StackPanel>
+          <TextBlock Text="Ask Claude" FontWeight="SemiBold" Foreground="#FF2B2830" FontSize="12"/>
+          <DockPanel Margin="0,6,0,0">
+            <Button Content="Send" DockPanel.Dock="Right" Click="OnSendAsk"
+                    Padding="10,5" Background="#FF2B2830" Foreground="White" BorderThickness="0"/>
+            <TextBox x:Name="AskInput" Text="What should I work on next?"
+                     Margin="0,0,6,0" Padding="7,5" FontSize="10"
+                     BorderThickness="1" BorderBrush="#FFE0D8CE"/>
+          </DockPanel>
+          <TextBlock x:Name="AskResponse" Text="" Foreground="#FF55515B"
+                     FontSize="10" TextWrapping="Wrap" MaxHeight="90" Margin="0,8,0,0"/>
+        </StackPanel>
+      </Border>
 
       <Border x:Name="PermissionCard" Grid.Row="1" Visibility="Collapsed"
               Background="#FFF7F3EA" CornerRadius="16" Padding="10" Margin="0,2,0,0">
