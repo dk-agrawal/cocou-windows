@@ -134,6 +134,10 @@ public partial class MainWindow : Window
         if (sessions.Count == 0) sessions = _discovery.Discover();
         if (sessions.Count == 0)
         {
+            _activeSessionId = null;
+            _updatingSessionPicker = true;
+            SessionPicker.ItemsSource = null;
+            _updatingSessionPicker = false;
             Status.Text = "Waiting for Claude Code…";
             return;
         }
