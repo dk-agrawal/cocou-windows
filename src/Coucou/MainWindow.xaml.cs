@@ -424,7 +424,7 @@ public partial class MainWindow : Window
         PermissionCard.Visibility = Visibility.Collapsed;
         MainControls.Visibility = Visibility.Collapsed;
         AskCard.Visibility = Visibility.Visible;
-        Height = 270;
+        Height = 390;
         var active = GetActiveSession();
         if (active is not null && !string.IsNullOrWhiteSpace(active.Cwd) && Directory.Exists(active.Cwd))
             _workingDirectory = active.Cwd;
