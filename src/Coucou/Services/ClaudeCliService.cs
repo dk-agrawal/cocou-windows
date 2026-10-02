@@ -134,11 +134,11 @@ public sealed class ClaudeCliService
             }
 
             using var json = JsonDocument.Parse(body);
-            var message = json.RootElement
+            var messageElement = json.RootElement
                 .GetProperty("choices")[0]
                 .GetProperty("message");
 
-            if (!message.TryGetProperty("content", out var contentElement))
+            if (!messageElement.TryGetProperty("content", out var contentElement))
                 return "OpenRouter returned no answer content.";
 
             var answer = ExtractMessageContent(contentElement);
