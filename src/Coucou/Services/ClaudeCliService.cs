@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.ComponentModel;
@@ -55,6 +54,21 @@ public sealed class ClaudeCliService
 
         start.ArgumentList.Add("-p");
         start.ArgumentList.Add(prompt);
+        // Claude Code's native Anthropic-compatible path does not support
+        // OpenRouter's generic openrouter/free router. When Coucou is launched
+        // from an OpenRouter-configured Claude Code environment, pin Ask mode to
+        // a real Anthropic model so the request (including session-title generation)
+        // stays compatible with Claude Code.
+        var baseUrl = Environment.GetEnvironmentVariable("ANTHROPIC_BASE_URL") ?? "";
+        var configuredModel = Environment.GetEnvironmentVariable("ANTHROPIC_MODEL") ?? "";
+        if (baseUrl.Contains("openrouter.ai", StringComparison.OrdinalIgnoreCase)
+            && configuredModel.Equals("openrouter/free", StringComparison.OrdinalIgnoreCase))
+        {
+            start.ArgumentList.Add("--model");
+            start.ArgumentList.Add("anthropic/claude-sonnet-4.6");
+            start.Environment["ANTHROPIC_MODEL"] = "anthropic/claude-sonnet-4.6";
+        }
+
         start.ArgumentList.Add("--output-format");
         start.ArgumentList.Add("text");
         start.ArgumentList.Add("--max-turns");
