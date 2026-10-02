@@ -164,10 +164,6 @@ public sealed class ClaudeCliService
 
             return $"Couldn't contact OpenRouter over HTTPS: {ex.Message}";
         }
-        catch (OperationCanceledException)
-        {
-            return "Ask cancelled.";
-        }
         catch (Exception ex)
         {
             return $"Couldn't contact OpenRouter: {ex.Message}";
