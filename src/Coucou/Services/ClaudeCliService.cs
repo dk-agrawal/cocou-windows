@@ -30,9 +30,11 @@ public sealed class ClaudeCliService
         // router before the actual answer is generated. Coucou Ask mode is a
         // standalone Q&A feature, so call OpenRouter directly in this case.
         var baseUrl = Environment.GetEnvironmentVariable("ANTHROPIC_BASE_URL") ?? "";
-        var authToken = Environment.GetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN")
-                        ?? Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")
-                        ?? "";
+        var authToken = new[]
+        {
+            Environment.GetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN"),
+            Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")
+        }.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
 
         if (baseUrl.Contains("openrouter.ai", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(authToken))
@@ -151,9 +153,104 @@ public sealed class ClaudeCliService
         {
             return "Ask cancelled.";
         }
+        catch (HttpRequestException ex)
+        {
+            // Windows ships with curl.exe, which uses the OS TLS stack and can
+            // succeed when a .NET HTTPS handler cannot negotiate the connection.
+            // This is a fallback only; we never disable certificate validation.
+            var fallback = await AskOpenRouterWithCurlAsync(prompt, authToken, cancellationToken);
+            if (fallback is not null)
+                return fallback;
+
+            return $"Couldn't contact OpenRouter over HTTPS: {ex.Message}";
+        }
+        catch (OperationCanceledException)
+        {
+            return "Ask cancelled.";
+        }
         catch (Exception ex)
         {
             return $"Couldn't contact OpenRouter: {ex.Message}";
+        }
+    }
+
+    private static async Task<string?> AskOpenRouterWithCurlAsync(
+        string prompt,
+        string authToken,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            model = "openrouter/free",
+            messages = new[]
+            {
+                new { role = "user", content = prompt }
+            },
+            max_tokens = 4096
+        });
+
+        var start = new ProcessStartInfo
+        {
+            FileName = "curl.exe",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        start.ArgumentList.Add("--silent");
+        start.ArgumentList.Add("--show-error");
+        start.ArgumentList.Add("--location");
+        start.ArgumentList.Add("--max-time");
+        start.ArgumentList.Add("300");
+        start.ArgumentList.Add("--request");
+        start.ArgumentList.Add("POST");
+        start.ArgumentList.Add("https://openrouter.ai/api/v1/chat/completions");
+        start.ArgumentList.Add("--header");
+        start.ArgumentList.Add($"Authorization: Bearer {authToken}");
+        start.ArgumentList.Add("--header");
+        start.ArgumentList.Add("Content-Type: application/json");
+        start.ArgumentList.Add("--data");
+        start.ArgumentList.Add(payload);
+
+        using var process = new Process { StartInfo = start };
+
+        try
+        {
+            if (!process.Start())
+                return null;
+
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+
+            var body = await outputTask;
+            var error = await errorTask;
+
+            if (process.ExitCode != 0)
+                return $"Couldn't contact OpenRouter (native HTTPS fallback): {error.Trim()}";
+
+            using var json = JsonDocument.Parse(body);
+            if (!json.RootElement.TryGetProperty("choices", out var choices)
+                || choices.GetArrayLength() == 0)
+                return "OpenRouter returned no choices.";
+
+            var message = choices[0].GetProperty("message");
+            if (!message.TryGetProperty("content", out var contentElement))
+                return "OpenRouter returned no answer content.";
+
+            var answer = ExtractMessageContent(contentElement);
+            return string.IsNullOrWhiteSpace(answer)
+                ? "OpenRouter returned an empty answer."
+                : answer.Trim();
+        }
+        catch (OperationCanceledException)
+        {
+            return "Ask cancelled.";
+        }
+        catch (Exception ex)
+        {
+            return $"Couldn't contact OpenRouter (native HTTPS fallback): {ex.Message}";
         }
     }
 
