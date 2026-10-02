@@ -52,6 +52,35 @@ public sealed class ClaudeCliService
         return string.IsNullOrWhiteSpace(result.Output) ? "Claude returned no text." : result.Output.Trim();
     }
 
+    private static string ExtractMessageContent(JsonElement content)
+    {
+        if (content.ValueKind == JsonValueKind.String)
+            return content.GetString() ?? "";
+
+        if (content.ValueKind == JsonValueKind.Array)
+        {
+            var parts = new List<string>();
+            foreach (var item in content.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    parts.Add(item.GetString() ?? "");
+                    continue;
+                }
+
+                if (item.ValueKind == JsonValueKind.Object
+                    && item.TryGetProperty("text", out var text)
+                    && text.ValueKind == JsonValueKind.String)
+                {
+                    parts.Add(text.GetString() ?? "");
+                }
+            }
+            return string.Join("\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+
+        return content.ToString();
+    }
+
     private static async Task<string> AskOpenRouterAsync(
         string prompt,
         string authToken,
@@ -105,14 +134,17 @@ public sealed class ClaudeCliService
             }
 
             using var json = JsonDocument.Parse(body);
-            var answer = json.RootElement
+            var message = json.RootElement
                 .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString();
+                .GetProperty("message");
+
+            if (!message.TryGetProperty("content", out var contentElement))
+                return "OpenRouter returned no answer content.";
+
+            var answer = ExtractMessageContent(contentElement);
 
             return string.IsNullOrWhiteSpace(answer)
-                ? "OpenRouter returned no text."
+                ? "OpenRouter returned an empty answer."
                 : answer.Trim();
         }
         catch (OperationCanceledException)
