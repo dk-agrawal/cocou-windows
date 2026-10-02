@@ -105,12 +105,23 @@
                      BorderThickness="1" BorderBrush="#FFE0D8CE"/>
           </DockPanel>
           <Border Background="#FFF0EBE3" CornerRadius="10" Margin="0,8,0,0"
-                  Padding="8" MinHeight="34" MaxHeight="150">
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-              <TextBlock x:Name="AskResponse" Text="" Foreground="#FF55515B"
-                         FontSize="10" TextWrapping="Wrap"/>
-            </ScrollViewer>
+                  Padding="9" MinHeight="110" MaxHeight="230">
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+              <TextBlock Text="Claude Response" Grid.Row="0"
+                         Foreground="#FF77727A" FontSize="9" FontWeight="SemiBold"
+                         Margin="0,0,0,5"/>
+              <TextBox x:Name="AskResponse" Grid.Row="1" Text="" IsReadOnly="True"
+                       AcceptsReturn="True" TextWrapping="Wrap"
+                       VerticalScrollBarVisibility="Auto"
+                       HorizontalScrollBarVisibility="Disabled"
+                       BorderThickness="0" Background="Transparent"
+                       Foreground="#FF2B2830" FontSize="10"
+                       Padding="0" IsTabStop="False"/>
+            </Grid>
           </Border>
         </StackPanel>
       </Border>
