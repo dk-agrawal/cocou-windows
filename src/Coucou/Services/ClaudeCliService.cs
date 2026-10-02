@@ -1,6 +1,10 @@
 using System.Diagnostics;
 using System.IO;
 using System.ComponentModel;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace Coucou.Services;
 
@@ -21,10 +25,21 @@ public sealed class ClaudeCliService
         if (!Directory.Exists(workingDirectory))
             workingDirectory = Environment.CurrentDirectory;
 
-        // Ask mode intentionally runs as a fresh, stateless Claude Code request.
-        // This avoids coupling the companion to Claude's internal session storage.
-        // Conversation/session continuity can be added later using Claude's supported
-        // resume flow once it is verified against the installed CLI version.
+        // When Claude Code is configured through OpenRouter, its internal
+        // generate_session_title call can reject the special openrouter/free
+        // router before the actual answer is generated. Coucou Ask mode is a
+        // standalone Q&A feature, so call OpenRouter directly in this case.
+        var baseUrl = Environment.GetEnvironmentVariable("ANTHROPIC_BASE_URL") ?? "";
+        var authToken = Environment.GetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN")
+                        ?? Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")
+                        ?? "";
+
+        if (baseUrl.Contains("openrouter.ai", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(authToken))
+        {
+            return await AskOpenRouterAsync(prompt, authToken, cancellationToken);
+        }
+
         var result = await RunClaudeAsync(prompt, workingDirectory, cancellationToken);
 
         if (result.ExitCode != 0)
@@ -35,6 +50,79 @@ public sealed class ClaudeCliService
         }
 
         return string.IsNullOrWhiteSpace(result.Output) ? "Claude returned no text." : result.Output.Trim();
+    }
+
+    private static async Task<string> AskOpenRouterAsync(
+        string prompt,
+        string authToken,
+        CancellationToken cancellationToken)
+    {
+        using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var payload = new
+        {
+            model = "openrouter/free",
+            messages = new[]
+            {
+                new { role = "user", content = prompt }
+            },
+            max_tokens = 4096
+        };
+
+        using var content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+
+        try
+        {
+            using var response = await client.PostAsync(
+                "https://openrouter.ai/api/v1/chat/completions",
+                content,
+                cancellationToken);
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                try
+                {
+                    using var errorJson = JsonDocument.Parse(body);
+                    var message = errorJson.RootElement
+                        .GetProperty("error")
+                        .GetProperty("message")
+                        .GetString();
+                    return string.IsNullOrWhiteSpace(message)
+                        ? $"OpenRouter returned HTTP {(int)response.StatusCode}."
+                        : $"OpenRouter: {message}";
+                }
+                catch
+                {
+                    return $"OpenRouter returned HTTP {(int)response.StatusCode}.";
+                }
+            }
+
+            using var json = JsonDocument.Parse(body);
+            var answer = json.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString();
+
+            return string.IsNullOrWhiteSpace(answer)
+                ? "OpenRouter returned no text."
+                : answer.Trim();
+        }
+        catch (OperationCanceledException)
+        {
+            return "Ask cancelled.";
+        }
+        catch (Exception ex)
+        {
+            return $"Couldn't contact OpenRouter: {ex.Message}";
+        }
     }
 
     private static async Task<(int ExitCode, string Output, string Error)> RunClaudeAsync(
@@ -54,21 +142,6 @@ public sealed class ClaudeCliService
 
         start.ArgumentList.Add("-p");
         start.ArgumentList.Add(prompt);
-        // Claude Code's native Anthropic-compatible path does not support
-        // OpenRouter's generic openrouter/free router. When Coucou is launched
-        // from an OpenRouter-configured Claude Code environment, pin Ask mode to
-        // a real Anthropic model so the request (including session-title generation)
-        // stays compatible with Claude Code.
-        var baseUrl = Environment.GetEnvironmentVariable("ANTHROPIC_BASE_URL") ?? "";
-        var configuredModel = Environment.GetEnvironmentVariable("ANTHROPIC_MODEL") ?? "";
-        if (baseUrl.Contains("openrouter.ai", StringComparison.OrdinalIgnoreCase)
-            && configuredModel.Equals("openrouter/free", StringComparison.OrdinalIgnoreCase))
-        {
-            start.ArgumentList.Add("--model");
-            start.ArgumentList.Add("anthropic/claude-sonnet-4.6");
-            start.Environment["ANTHROPIC_MODEL"] = "anthropic/claude-sonnet-4.6";
-        }
-
         start.ArgumentList.Add("--output-format");
         start.ArgumentList.Add("text");
         start.ArgumentList.Add("--max-turns");
