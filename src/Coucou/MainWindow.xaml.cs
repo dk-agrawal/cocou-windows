@@ -419,6 +419,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ClearAskState()
+    {
+        AskInput.Text = "";
+        AskResponse.Text = "";
+        AskResponseScroll.ScrollToTop();
+        _droppedFile = null;
+    }
+
     private void OnAskClick(object sender, RoutedEventArgs e)
     {
         PermissionCard.Visibility = Visibility.Collapsed;
@@ -429,6 +437,7 @@ public partial class MainWindow : Window
         if (active is not null && !string.IsNullOrWhiteSpace(active.Cwd) && Directory.Exists(active.Cwd))
             _workingDirectory = active.Cwd;
         AskResponse.Text = "";
+        AskResponseScroll.ScrollToTop();
         if (!string.IsNullOrWhiteSpace(_droppedFile))
             AskInput.Text = $"Review this file and tell me what I should do next: \"{_droppedFile}\"";
         AskInput.Focus();
@@ -439,6 +448,7 @@ public partial class MainWindow : Window
     {
         AskCard.Visibility = Visibility.Collapsed;
         PermissionCard.Visibility = Visibility.Collapsed;
+        ClearAskState();
         MainControls.Visibility = Visibility.Visible;
         Height = 150;
         Status.Text = "Watching Claude Code…";
@@ -460,6 +470,7 @@ public partial class MainWindow : Window
         {
             var response = await _claude.AskAsync(prompt, _workingDirectory);
             AskResponse.Text = response;
+            AskResponseScroll.ScrollToHome();
             Status.Text = "Claude answered ✨";
             Hint.Text = "Ask another question";
         }
