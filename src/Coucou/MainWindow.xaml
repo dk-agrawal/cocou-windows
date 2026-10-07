@@ -111,16 +111,22 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
               </Grid.RowDefinitions>
-              <TextBlock Text="Claude Response" Grid.Row="0"
-                         Foreground="#FF77727A" FontSize="9" FontWeight="SemiBold"
-                         Margin="0,0,0,5"/>
-              <TextBox x:Name="AskResponse" Grid.Row="1" Text="" IsReadOnly="True"
-                       AcceptsReturn="True" TextWrapping="Wrap"
-                       VerticalScrollBarVisibility="Auto"
-                       HorizontalScrollBarVisibility="Disabled"
-                       BorderThickness="0" Background="Transparent"
-                       Foreground="#FF2B2830" FontSize="10"
-                       Padding="0" IsTabStop="False"/>
+              <DockPanel Grid.Row="0" Margin="0,0,0,5">
+                <TextBlock Text="Claude Response"
+                           Foreground="#FF77727A" FontSize="9" FontWeight="SemiBold"/>
+                <TextBlock Text="Not saved"
+                           DockPanel.Dock="Right"
+                           Foreground="#FFAAA4AA" FontSize="8"/>
+              </DockPanel>
+              <ScrollViewer x:Name="AskResponseScroll" Grid.Row="1"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled">
+                <TextBox x:Name="AskResponse" Text="" IsReadOnly="True"
+                         AcceptsReturn="True" TextWrapping="Wrap"
+                         BorderThickness="0" Background="Transparent"
+                         Foreground="#FF2B2830" FontSize="10"
+                         Padding="0" IsTabStop="False"/>
+              </ScrollViewer>
             </Grid>
           </Border>
         </StackPanel>
